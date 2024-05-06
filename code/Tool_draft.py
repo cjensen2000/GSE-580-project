@@ -49,6 +49,12 @@ def remove_asterisks(text):
     pattern = r"\*"
     return re.sub(pattern, "", text)
 
+def strip_non_digits(text):
+    import re
+    return re.sub(r"[^\d.]", "", text)
+
+
+
 
 def step_two_cleaning(prompt, code):
     import numpy as np
@@ -107,8 +113,8 @@ def step_two_cleaning(prompt, code):
   
     # Making proportion column a float between 0 and 1
     if type(df["Proportion of Jobs"][0]) == str:
-        pattern = r'\D'  # Matches any non-digit character
-        df["Proportion of Jobs"] = df["Proportion of Jobs"].str.replace(pattern, '')
+        pattern = r"[^\d.]"  # Matches any non-digit character
+        df["Proportion of Jobs"] = df["Proportion of Jobs"].apply(strip_non_digits)
         df["Proportion of Jobs"] = df["Proportion of Jobs"].str.strip()
         df["Proportion of Jobs"] = df["Proportion of Jobs"].str.replace("%", "")
         df["Proportion of Jobs"] = df["Proportion of Jobs"].str.replace("<", "")
@@ -124,48 +130,16 @@ def step_two_cleaning(prompt, code):
             df["Proportion of Jobs"][i] = df["Proportion of Jobs"][i]/total
     return df
 
-import pandas as pd
-import numpy as np
 
 ## Creating a usable prompt 
-## Start by importing the correspondence table and .txt files with with codes and descriptions
-corr_table = pd.read_csv("ISIC4_ISIC31.csv", dtype={"ISIC4code": str, "partialISIC4": str, "ISIC31code": str, "partialISIC31": str})
-corr_table = corr_table.fillna("")
-ISIC_4 = pd.read_csv("isic4.txt", dtype={'num': str}, delimiter = "|")
-ISIC_31 = pd.read_excel("ISIC_31.xlsx", dtype={'code': str, "description": str})
-ISIC_31 = ISIC_31.drop(columns = [ISIC_31.columns[0]])
-col_names = ["code", "description"]
-ISIC_4.columns = col_names
-ISIC_31.columns = col_names
-
-
-# Cleaning data and making dfs for each code length 
-code_length_4 = ISIC_4['code'].str.len()
-code_length_31 = ISIC_31['code'].str.len()
-
-# Filter DataFrames based on code length
-ISIC_4_2digit = ISIC_4[code_length_4 == 2]
-ISIC_4_3digit = ISIC_4[code_length_4 == 3]
-ISIC_4_4digit = ISIC_4[code_length_4 == 4]
-
-ISIC_3_2digit = ISIC_31[code_length_31 == 2]
-ISIC_3_3digit = ISIC_31[code_length_31 == 3]
-ISIC_3_4digit = ISIC_31[code_length_31 == 4]
-
-# Making 3 digit and 2 digit 4.0 codes columns in the correspondence table 
-corr_table['ISIC_4_3d'] = corr_table['ISIC4code'].str[:3]
-corr_table['ISIC_4_2d'] = corr_table['ISIC4code'].str[:2]
-
-
-
-def make_prompt(digits, four_code):
+def make_prompt(digits, four_code, corr_table, ISIC_old, ISIC_new):
     num_codes = corr_table["ISIC4code"].value_counts()
-    prompt = "A " + digits + " digit code " + four_code + " which is (" + str(ISIC_4_4digit[ISIC_4_4digit["code"] == four_code]["description"].iloc[0]) + ") in ISIC version 4 is comprised of " + str(num_codes[four_code]) + " four digit codes in ISICs version 3.1, "
+    prompt = "A " + digits + " digit code " + four_code + " which is (" + str(ISIC_new[ISIC_new["code"] == four_code]["description"].iloc[0]) + ") in ISIC version 4 is comprised of " + str(num_codes[four_code]) + " four digit codes in ISICs version 3.1, "
     codes_31 = corr_table[corr_table["ISIC4code"] == four_code]
     ## Code to handle when there are multiple instances of a code and possibly multiple "details" for that code in the correspondence table
     for code in codes_31["ISIC31code"].unique(): 
         ## start by just adding the code and its standard description from the ISIC code data frame
-        prompt = prompt + code + " which is (" + ISIC_3_4digit[ISIC_3_4digit['code'] == code]['description'].iloc[0] + "), "
+        prompt = prompt + code + " which is (" + ISIC_old[ISIC_old['code'] == code]['description'].iloc[0] + "), "
         ## now test if the code is unique, that is, it only appears once within the 3 digit code we are considering from version 4
         if codes_31['ISIC31code'].eq(code).sum() == 1:
             ## If it is unique, we test if the detail column of the correspondence table is empty, if it is not we add that extra detail to the prompt
