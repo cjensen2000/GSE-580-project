@@ -59,12 +59,12 @@ for i in range(100):
 prop_df = tool_loop(multi_codes)
 for i in range(len(names)):
     max_retries = 5
-    for i in range(1, max_retries):
+    for j in range(1, max_retries):
         try:
             test = tool_loop(multi_codes)
             break
         except Exception as e:
-            if i == max_retries:
+            if j == max_retries:
                 print(f"Reached maximum retries ({max_retries}). Giving up.")
             else: 
                 time.sleep(.1)
@@ -82,4 +82,4 @@ var_df.to_excel("variance_df.xlsx")
 np.median(var_df)
 import matplotlib.pyplot as plt
 plt.hist(var_df)
-plt.savefig('variance.png', dpi = 500)
+plt.savefig('variance.png', dpi = 300)
