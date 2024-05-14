@@ -5,7 +5,7 @@ Created on Fri Apr 19 10:16:32 2024
 @author: Caleb Jensen
 """
 
-def step_one_cleaning(prompt):  
+def step_one_cleaning(prompt, mod = 'gemini-pro'):  
     from io import StringIO
     import csv
     import pathlib
@@ -20,7 +20,7 @@ def step_one_cleaning(prompt):
     
     #setting the model and API key
     genai.configure(api_key=GOOGLE_API_KEY)
-    model = genai.GenerativeModel('gemini-pro')
+    model = genai.GenerativeModel(mod)
     
     # Input string prompt to the google model 
     response = model.generate_content(prompt)
@@ -56,7 +56,7 @@ def strip_non_digits(text):
 
 
 
-def step_two_cleaning(prompt, code):
+def step_two_cleaning(prompt, code, mod = 'gemini-pro'):
     import numpy as np
     import pandas as pd
     from collections import Counter
@@ -66,7 +66,7 @@ def step_two_cleaning(prompt, code):
         max_retries = 5
         for attempt in range(1, max_retries + 1):
             try:
-                df = step_one_cleaning(prompt)
+                df = step_one_cleaning(prompt, mod)
                 break
             except Exception as e:
                 if attempt == max_retries:

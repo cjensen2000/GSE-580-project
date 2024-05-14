@@ -1,6 +1,0 @@
-Traceback (most recent call last):
-  File "C:\Users\Caleb Jensen\OneDrive - Cal Poly\MSQE\GSE_580\GSE-580-project\code\var_calcs.py", line 8, in <module>
-    from Tool_draft import make_prompt
-  File "C:\Users\Caleb Jensen\OneDrive - Cal Poly\MSQE\GSE_580\GSE-580-project\code\Tool_draft.py", line 127, in <module>
-    import pandas as pd
-ModuleNotFoundError: No module named 'pandas'

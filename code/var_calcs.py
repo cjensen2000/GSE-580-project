@@ -79,7 +79,6 @@ prop_df = prop_df.drop("codes", axis = 0)
 variance = prop_df.var()
 var_df = pd.DataFrame(variance)
 var_df.to_excel("variance_df.xlsx")
-np.median(var_df)
 import matplotlib.pyplot as plt
 plt.hist(var_df)
 plt.savefig('variance.png', dpi = 300)
