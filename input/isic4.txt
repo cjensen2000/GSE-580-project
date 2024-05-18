@@ -166,8 +166,8 @@ num|name
 2030|Manufacture of man-made fibres
 203|Manufacture of man-made fibres
 20|Manufacture of chemicals and chemical products
-210|Manufacture of pharmaceuticals, medicinal chemical and botanical products
-21|Manufacture of basic pharmaceutical products and pharmaceutical prepara- tions
+2100|Manufacture of pharmaceuticals, medicinal chemical and botanical products
+21|Manufacture of basic pharmaceutical products and pharmaceutical preparations
 2211|Manufacture of rubber tyres and tubes; retreading and rebuilding of rubber tyres
 2219|Manufacture of other rubber products
 221|Manufacture of rubber products
@@ -669,7 +669,7 @@ num|name
 87|Residential care activities
 8810|Social work activities without accommodation for the elderly and disabled
 881|Social work activities without accommodation for the elderly and disabled
-889|Other social work activities without accommodation
+8890|Other social work activities without accommodation
 88|Social work activities without accommodation
 9000|Creative, arts and entertainment activities
 900|Creative, arts and entertainment activities

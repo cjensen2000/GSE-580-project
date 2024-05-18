@@ -13,7 +13,6 @@ def step_one_cleaning(prompt, mod = 'gemini-pro'):
     import google.generativeai as genai
     import numpy as np
     import pandas as pd
-    
     ## Need to change this line to get your own API key if possible
     from config import GOOGLE_API_KEY
     
@@ -54,8 +53,6 @@ def strip_non_digits(text):
     return re.sub(r"[^\d.]", "", text)
 
 
-
-
 def step_two_cleaning(prompt, code, mod = 'gemini-pro'):
     import numpy as np
     import pandas as pd
@@ -63,18 +60,17 @@ def step_two_cleaning(prompt, code, mod = 'gemini-pro'):
     import time
     status = "broken"
     while status == "broken":
-        max_retries = 5
-        for attempt in range(1, max_retries + 1):
-            try:
-                df = step_one_cleaning(prompt, mod)
-                break
-            except Exception as e:
-                if attempt == max_retries:
-                    print(f"Reached maximum retries ({max_retries}). Giving up.")
-                else: 
-                    time.sleep(.1)
+        #max_retries = 10
+        #for attempt in range(1, max_retries + 1):
+            #try:
+        df = step_one_cleaning(prompt, mod)
+                #break
+            #except Exception as e:
+                #if attempt == max_retries:
+                    #return print(f"Reached maximum retries ({max_retries}). Giving up.")
+                #else: 
+                    #time.sleep(.1)
         names = df.columns
-        status = "broken"
         if len(names) == 3 and len(df) != 0 and type(df[names[2]][0]) == str:
             count = Counter(df[names[2]][0])
             if count["."] == 1:
@@ -84,7 +80,7 @@ def step_two_cleaning(prompt, code, mod = 'gemini-pro'):
                     if df[names[2]][i] == "**1**":
                         df[names[2]][i] = "1.00"
                     elif type(df[names[2]][i]) == str:
-                        if 'n/a' in df[names[2]][i].lower() or 'NaN' in df[names[2]][i].lower():
+                        if 'n/a' in df[names[2]][i].lower() or 'nan' in df[names[2]][i].lower():
                             df[names[2]][i] = "0"
                 status = "clean"
         if status == "clean":
@@ -144,26 +140,26 @@ def make_prompt(digits, four_code, corr_table, ISIC_old, ISIC_new):
         if codes_31['ISIC31code'].eq(code).sum() == 1:
             ## If it is unique, we test if the detail column of the correspondence table is empty, if it is not we add that extra detail to the prompt
             if codes_31[codes_31["ISIC31code"] == code]["Detail"].iloc[0] != "":
-                prompt = prompt + " and includes (" + codes_31[codes_31["ISIC31code"] == code]["Detail"].iloc[0] + ") "
-        elif codes_31['ISIC31code'].eq(code).sum() > 1:
+                prompt = prompt + " and includes (" + str(codes_31[codes_31["ISIC31code"] == code]["Detail"].iloc[0]) + ") "
+        #elif codes_31['ISIC31code'].eq(code).sum() > 1:
             ## we now test if the code is not unique, if this is the case our code is more complicated, start by making an index list that will track appearances of this code
-            ind = []
+            #ind = []
             ## Now we will loop through the instances of the code and add the index of each instance if the detail section is not empty, we are collecting all the different details to include 
-            for i in range(codes_31['ISIC31code'].eq(code).sum()):
-                if codes_31[codes_31["ISIC31code"] == code]["Detail"].iloc[i] != "":
-                    ind.append(i)
+            #for i in range(codes_31['ISIC31code'].eq(code).sum()):
+                #if codes_31[codes_31["ISIC31code"] == code]["Detail"].iloc[i] != "":
+                    #ind.append(i)
             ## If the code is repeated but never with a detail the prompt remains unchanged
-            if len(ind) == 0:
-                prompt = prompt
+            #if len(ind) == 0:
+                #prompt = prompt
             ## If the code is repeated but only with 1 detail, just include that single detail
-            elif len(ind) == 1:
-                prompt = prompt + "and includes (" + codes_31[codes_31["ISIC31code"] == code]["Detail"].iloc[ind[0]] + ", "
+            #elif len(ind) == 1:
+                #prompt = prompt + "and includes (" + codes_31[codes_31["ISIC31code"] == code]["Detail"].iloc[ind[0]] + ", "
             ## If the code is repeated with multiple details, start with the first detail and drop the first item in the list so it is not repeated, then loop through the list adding all the details
-            else: 
-                prompt = prompt + " and includes (" + codes_31[codes_31["ISIC31code"] == code]["Detail"].iloc[ind[0]]
-                ind = ind[1:]
-                for k in ind:
-                    prompt = prompt + ", and (" + codes_31[codes_31["ISIC31code"] == code]["Detail"].iloc[k] + ")"
+            #else: 
+                #prompt = prompt + " and includes (" + codes_31[codes_31["ISIC31code"] == code]["Detail"].iloc[ind[0]]
+                #ind = ind[1:]
+                #for k in ind
+                    #prompt = prompt + ", and (" + codes_31[codes_31["ISIC31code"] == code]["Detail"].iloc[k] + ")"
     if num_codes[four_code] > 10:
         prompt = prompt + " What is your best estimate of the proportion of jobs now coded in " + four_code + " that were in each of the previous codes in version 3.1? The proportions can be less than .05 and many probably are less .05. Can you give me your best guesses in a table with 3 columns, first the three digit code, " + four_code + " then the four didgit codes, then the proportions?"
     else: 
@@ -171,5 +167,17 @@ def make_prompt(digits, four_code, corr_table, ISIC_old, ISIC_new):
     return prompt
 
 
+#corr_table = pd.read_csv("ISIC4_ISIC31.csv", dtype={"ISIC4code": str, "partialISIC4": str, "ISIC31code": str, "partialISIC31": str})
+#corr_table = corr_table.fillna("")
+#ISIC_4 = pd.read_csv("isic4.txt", dtype={'num': str}, delimiter = "|")
+#ISIC_4.to_excel("ISIC_4.xlsx")
+#ISIC_31 = pd.read_excel("ISIC_31.xlsx", dtype={'code': str, "description": str})
+#ISIC_31 = ISIC_31.drop(columns = [ISIC_31.columns[0]])
+#ISIC_31.to_excel("ISIC_31.xlsx")
+#col_names = ["code", "description"]
+#ISIC_4.columns = col_names
+#ISIC_31.columns = col_names
 
-
+#ISIC_4_4digit = ISIC_4[ISIC_4['code'].str.len() == 4]
+#ISIC_4_4digit.to_excel("ISIC_4_4digit.xlsx")
+#ISIC_31_4digit = ISIC_31[ISIC_31['code'].str.len() == 4]
