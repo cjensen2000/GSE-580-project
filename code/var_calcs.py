@@ -5,45 +5,25 @@ Created on Fri Apr 26 10:15:46 2024
 @author: Caleb Jensen
 """
 
-from Tool_draft import make_prompt
-from Tool_draft import step_one_cleaning
-from Tool_draft import step_two_cleaning
-from Tool_draft import remove_asterisks
-from Tool_loop import tool_loop
+from Tool_funtctions import make_prompt
+from Tool_funtctions import step_one_cleaning
+from Tool_funtctions import step_two_cleaning
+from Tool_funtctions import remove_asterisks
+from Tool_funtctions import tool_loop
 import pandas as pd
 import numpy as np
 import time
+import sys
 
-## Start by importing the correspondence table and .txt files with with codes and descriptions
-corr_table = pd.read_csv("ISIC4_ISIC31.csv", dtype={"ISIC4code": str, "partialISIC4": str, "ISIC31code": str, "partialISIC31": str})
-corr_table = corr_table.fillna("")
-ISIC_4 = pd.read_csv("isic4.txt", dtype={'num': str}, delimiter = "|")
-ISIC_31 = pd.read_excel("ISIC_31.xlsx", dtype={'code': str, "description": str})
-ISIC_31 = ISIC_31.drop(columns = [ISIC_31.columns[0]])
-col_names = ["code", "description"]
-ISIC_4.columns = col_names
-ISIC_31.columns = col_names
+# Access input and output file paths from sys.argv
+corr_table = sys.argv[1]
+ISIC_old = sys.argv[2]
+ISIC_new = sys.argv[3]
+mod = sys.argv[4]
+out_file_xl = sys.argv[5]
+out_file_png = sys.argv[6]
 
-
-# Cleaning data and making dfs for each code length 
-code_length_4 = ISIC_4['code'].str.len()
-code_length_31 = ISIC_31['code'].str.len()
-
-# Filter DataFrames based on code length
-ISIC_4_2digit = ISIC_4[code_length_4 == 2]
-ISIC_4_3digit = ISIC_4[code_length_4 == 3]
-ISIC_4_4digit = ISIC_4[code_length_4 == 4]
-
-ISIC_3_2digit = ISIC_31[code_length_31 == 2]
-ISIC_3_3digit = ISIC_31[code_length_31 == 3]
-ISIC_3_4digit = ISIC_31[code_length_31 == 4]
-
-# Making 3 digit and 2 digit 4.0 codes columns in the correspondence table 
-corr_table['ISIC_4_3d'] = corr_table['ISIC4code'].str[:3]
-corr_table['ISIC_4_2d'] = corr_table['ISIC4code'].str[:2]
-
-
-codes = np.array(ISIC_4_4digit["code"])
+codes = np.array(ISIC_new["code"])
 
 codes_list = []
 for code in codes :
@@ -61,7 +41,7 @@ for i in range(len(names)):
     max_retries = 5
     for j in range(1, max_retries):
         try:
-            test = tool_loop(multi_codes)
+            test = tool_loop(multi_codes, corr_table = corr_table, ISIC_old = ISIC_old, ISIC_new = ISIC_new, mod = 'gemini-pro')
             break
         except Exception as e:
             if j == max_retries:
@@ -78,7 +58,7 @@ prop_df.columns = new_col_names
 prop_df = prop_df.drop("codes", axis = 0)
 variance = prop_df.var()
 var_df = pd.DataFrame(variance)
-var_df.to_excel("variance_df.xlsx")
+var_df.to_excel(out_file_xl, index = False)
 import matplotlib.pyplot as plt
 plt.hist(var_df)
-plt.savefig('variance.png', dpi = 300)
+plt.savefig(out_file_png, dpi = 300)
