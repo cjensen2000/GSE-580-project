@@ -32,7 +32,7 @@ ISIC_new.fillna("", inplace = True)
 codes = np.array(ISIC_new["code"])
 if len(sys.argv) > 4:
     mod = sys.argv[4]
-    correspondence_table = sys.argv[5]
+    out_file = sys.argv[5]
     correspondence_table = tool_loop(codes, corr_table=corr_table, ISIC_old=ISIC_old, ISIC_new=ISIC_new, mod = mod)
 
 else: 
@@ -40,3 +40,4 @@ else:
     correspondence_table = tool_loop(codes, corr_table=corr_table, ISIC_old=ISIC_old, ISIC_new=ISIC_new, mod = 'gemini-pro')
 
 correspondence_table.to_excel(out_file, index= False)
+
