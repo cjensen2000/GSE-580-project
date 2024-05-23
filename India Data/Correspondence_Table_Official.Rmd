@@ -1,0 +1,352 @@
+---
+title: "Corp Table"
+author: "Jobs Group"
+date: "2024-04-19"
+output: html_document
+---
+
+```{r}
+library(haven)
+data <- read_dta("C:/Users/benja/Downloads/IND_2009_EUS_V01_M_V06_A_GLD_ALL.dta")
+```
+
+```{r}
+library(haven)
+data2 <- read_dta("C:/Users/benja/Downloads/IND_2011_EUS_V01_M_V06_A_GLD_ALL.dta")
+```
+
+Load in the correspondence table; the code below creates a correspondence table between ISIC 4 and ISIC 3.1
+```{r}
+library(stringr)
+#setwd("~/Desktop/econo2")
+correspondence <- read.csv("ISIC_words.txt", header = TRUE, stringsAsFactors = FALSE)
+```
+
+Drops the detail column, aggregates the data based on ISIC3.1 code
+```{r}
+correspondence <- correspondence[, !(names(correspondence) == "Detail")]
+
+grouped_data <- split(correspondence$ISIC31code, correspondence$ISIC4code)
+
+result_df <- data.frame(ISIC4code = character(), ISIC31code = character(), stringsAsFactors = FALSE)
+
+for (code in names(grouped_data)) {
+  isic31_codes <- unique(grouped_data[[code]])
+  
+  for (isic31_code in isic31_codes) {
+    result_df <- rbind(result_df, data.frame(ISIC4code = code, ISIC31code = isic31_code))
+  }
+}
+
+result_df$ISIC4code <- str_pad(result_df$ISIC4code, width = 4, side = "left", pad = "0")
+
+result_df$ISIC31code <- str_pad(result_df$ISIC31code, width = 4, side = "left", pad = "0")
+
+```
+
+Creates the correspondence table
+```{r}
+
+get_correspondence_table <- function(correspondence_data) {
+  agg_data <- aggregate(ISIC31code ~ ISIC4code, data = correspondence_data, FUN = unique)
+  
+  return(agg_data)
+}
+
+# For some reason R drops the 0 in front of codes like 0111, so this restores them
+correspondence_table <- get_correspondence_table(result_df)
+correspondence_table$ISIC4code <- sprintf("%s", correspondence_table$ISIC4code)
+
+
+```
+
+Creates a new dataframe with the 2011 ISIC code data to make prediction table; drops empty entries.
+```{r}
+ISIC4 <- data2$industrycat_isic_year
+
+ISIC4[ISIC4 == ""] <- NA
+ISIC4 <- na.omit(ISIC4)
+
+df <- data.frame(ISIC4 =ISIC4, ISIC31 = NA)
+# ISIC31 is empty so it can be populated in the next step
+```
+
+Matches Indian ISIC codes with the corresponding ones in 3.1.
+```{r}
+
+df$ISIC4 <- as.character(df$ISIC4)
+correspondence_table$ISIC4code <- as.character(correspondence_table$ISIC4code)
+
+for (i in seq_along(df$ISIC4)) {
+  code <- df$ISIC4[i]
+  match <- correspondence_table$ISIC4code == code
+  if (any(match)) {
+    df$ISIC31[i] <- correspondence_table$ISIC31code[match]
+  }
+}
+
+
+```
+
+Goes through each option and selects one for a new column, called selected_options, also takes probabilities and adds them to a new column as well. Prediction table!
+```{r}
+select_option_with_probability <- function(options) {
+  if (is.vector(options)) {
+    selected_option <- sample(options, 1)
+    
+    probability <- 1 / length(options)
+    
+    return(list(selected_option = selected_option, probability = probability))
+  } else if (is.list(options)) {
+    selected_option <- sample(options, 1)
+    
+    probability <- 1 / length(options)
+    
+    return(list(selected_option = selected_option, probability = probability))
+  } else {
+    return(NULL)
+  }
+}
+
+selected_options <- lapply(df$ISIC31, select_option_with_probability)
+
+df$selected_option <- sapply(selected_options, function(x) x$selected_option)
+df$probability <- sapply(selected_options, function(x) x$probability)
+
+print(df)
+```
+Start of constructing the correspondence table
+
+```{r}
+num_unique_isic4 <- length(unique(df$ISIC4))
+print(paste("Number of unique ISIC4 codes:", num_unique_isic4))
+```
+
+This seperates both df into 2 df 1 is where prob is equal to 1 and df is otherwise
+```{r}
+# create a new dataframe with rows where 'probability' is 1
+df1 <- df[df$probability == 1, ]
+
+# remove the rows from the original dataframe where 'probability' is 1
+df <- df[df$probability != 1, ]
+
+
+print(head(df1))
+print(head(df))
+
+```
+Create the weighted probabilities using the sum of job codes and proportions based on their mapping
+```{r}
+library(dplyr)
+# new function to split the 'ISIC31' column and count the frequency of 'selected_option' to get our mapping
+calculate_probabilities <- function(df) {
+  # splitting the 'ISIC31' strings into separate rows
+  split_df <- tidyr::separate_rows(df, ISIC31, sep = ",")
+  
+  # removing quotes and extra spaces from 'ISIC31' to clean up the data
+  split_df$ISIC31 <- gsub('["c()]', '', split_df$ISIC31)
+  split_df$ISIC31 <- trimws(split_df$ISIC31)
+  
+  # calculate the frequency of 'selected_option' corresponding to 'ISIC4'
+  freq_df <- dplyr::count(split_df, ISIC4, ISIC31, selected_option)
+  
+  # calculate probabilities
+  freq_df <- freq_df %>%
+    group_by(ISIC4, ISIC31) %>%
+    mutate(probability = n / sum(n))
+  
+  # get the correct columns for new df
+  df2 <- freq_df %>% 
+    select(ISIC4, ISIC31, probability) %>%
+    distinct()
+  
+  return(df2)
+}
+
+df2 <- calculate_probabilities(df)
+
+
+print(head(df2))
+
+```
+
+Cleaning up the df to better represent the selected option in the mapping
+```{r}
+library(dplyr)
+library(tidyr)
+
+# clean the 'ISIC31' column by removing the 'c()', quotes, and splitting it into separate rows for each code
+df <- df %>% 
+  mutate(ISIC31 = gsub("c\\(|\\)|\"", "", ISIC31)) %>%
+  separate_rows(ISIC31, sep = ",\\s*")
+
+# get the frequency for ecah selected option in 4.0
+df2 <- df %>%
+  group_by(ISIC4, ISIC31, selected_option) %>%
+  summarise(count = n(), .groups = "drop") %>%
+  mutate(probability = count / sum(count)) %>%
+  ungroup() %>%
+  filter(ISIC31 == selected_option)  # making sure ISIC31 matches the selected_option
+
+print(head(df2))
+
+```
+The final product for now is df3 as the correspondence table
+```{r}
+df3 <- df2 %>%
+  group_by(ISIC4) %>%
+  mutate(probability = count / sum(count)) %>%
+  ungroup() %>%
+  select(ISIC4, ISIC31, selected_option, probability) 
+
+# Remove the column 'selected_option' from df3
+df3 <- df3[ , !(names(df3) %in% c("selected_option"))]
+
+# View the updated dataframe
+print(df3)
+
+print(head(df3))
+print(df3)
+```
+
+Now we read in the tools results 
+```{r}
+library(readxl)
+
+# Specify the path to your Excel file
+file_path <- "C:/users/benja/Downloads/correspondence_table.xlsx"
+df6 <- read_excel(file_path)
+
+library(dplyr)
+
+# Assuming the second dataframe is named df2 and the first dataframe's column names are as shown
+df6 <- df6 %>% rename(
+  ISIC4 = version_4,
+  ISIC31 = version_3.1,
+  probability = `Proportion of Jobs`
+)
+
+# Print the renamed dataframe
+print(df6)
+```
+The probaility differences between the results and the obersved worked, but 141 missing NA values is pretty high, so going to retry without the proabilites of 1. df10 is just df3 again with no probailites of 1 from the India data.
+```{r}
+df10 <- df2 %>%
+  group_by(ISIC4) %>%
+  mutate(probability = count / sum(count)) %>%
+  ungroup() %>%
+  select(ISIC4, ISIC31, selected_option, probability) 
+
+# Remove the column 'selected_option' from df3
+df10 <- df10[ , !(names(df10) %in% c("selected_option"))]
+
+# View the updated dataframe
+print(df10)
+```
+df11 is the tools result without the probalities of 1
+```{r}
+# Drop all rows where probability is 1
+df11 <- subset(df6, probability != 1)
+print(df11)
+```
+df12 contains the final proability differences between the results and India occupation codes with only 47 missing values 
+```{r}
+library(dplyr)
+
+# Create a key for matching
+df11$key <- paste(df11$ISIC4, df11$ISIC31, sep = "_")
+df10$key <- paste(df10$ISIC4, df10$ISIC31, sep = "_")
+
+# Merge df11 and df10 to align the rows
+merged_df <- merge(df11, df10, by = "key", suffixes = c("_df11", "_df10"), all.x = TRUE)
+
+# Calculate the difference between the probabilities
+merged_df$prob_diff <- merged_df$probability_df11 - merged_df$probability_df10
+
+# Create the new dataframe df12 with the required columns and filter out missing values
+df12 <- merged_df %>%
+  filter(!is.na(probability_df10)) %>%
+  select(ISIC4 = ISIC4_df11, ISIC31 = ISIC31_df11, prob_diff)
+
+# Set scipen option to remove scientific notation and round to two decimal places
+options(scipen = 999)
+df12$prob_diff <- round(df12$prob_diff, 2)
+
+# Remove the key columns
+df11$key <- NULL
+df10$key <- NULL
+
+print("df12:")
+print(df12)
+```
+
+Here are the missing values from the probaility differences 
+```{r}
+# Separate rows where df10 has missing values
+df_missing <- merged_df %>% filter(is.na(probability_df10))
+
+print("df_missing:")
+print(df_missing)
+```
+
+Now lets do the general case
+```{r}
+library(dplyr)
+
+# Calculate the number of unique ISIC31 codes for each ISIC4
+df_general <- df11 %>%
+  group_by(ISIC4) %>%
+  mutate(probability = 1 / n()) %>%
+  ungroup() %>%
+
+# Print the new dataframe
+print(df_general)
+
+```
+
+The differences between the proabilites in the general case and the tools results 
+```{r}
+library(dplyr)
+
+# Create the df_gen_diff dataframe with the probability differences and round to two decimal places
+df_gen_diff <- df11 %>%
+  mutate(probability_general = df_general$probability,
+         prob_diff = round(probability - probability_general, 2)) %>%
+  select(ISIC4, ISIC31, prob_diff)
+
+# Print the new dataframe
+print("df_gen_diff:")
+print(df_gen_diff)
+
+```
+Differences between general case and the india occupation data
+```{r}
+library(dplyr)
+
+# Create a key for matching
+df10 <- df10 %>% mutate(key = paste(ISIC4, ISIC31, sep = "_"))
+df_general <- df_general %>% mutate(key = paste(ISIC4, ISIC31, sep = "_"))
+
+# Merge df10 and df_general to align the rows
+merged_df <- merge(df10, df_general, by = "key", suffixes = c("_df10", "_df_general"), all.x = TRUE)
+
+# Calculate the difference between the probabilities
+merged_df <- merged_df %>% mutate(prob_diff = probability_df10 - probability_df_general)
+
+# Create the new dataframe df_gen_india with the required columns and filter out missing values
+df_gen_india <- merged_df %>%
+  filter(!is.na(probability_df_general)) %>%
+  select(ISIC4 = ISIC4_df10, ISIC31 = ISIC31_df10, prob_diff)
+
+# Round prob_diff to two decimal places
+df_gen_india <- df_gen_india %>% mutate(prob_diff = round(prob_diff, 2))
+
+# Remove the key columns from the original dataframes
+df10 <- df10 %>% select(-key)
+df_general <- df_general %>% select(-key)
+
+print("df_gen_india:")
+print(df_gen_india)
+
+```
+
