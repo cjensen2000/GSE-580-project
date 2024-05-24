@@ -8,7 +8,7 @@
 |   |----Tool_functions.py			# Holds all functions used in the tool
 |   |----var_script.py				# Script to analyze variance in probability predictions
 |----India Data
-|   |----correspondence_table.Rmd		### 
+|   |----Correspondence_Table_Official.Rmd		### 
 |   |----India_Data_2009_.Rmd			India data to test the effectiveness of the model predictions. Data is from 2009 and 2011
 |   |----India_Data_2011_.Rmd			In 2009 ISICS 3.1 was used, in 2011 4.0 was used, we can test back predictions by comparing the predicted
 |   |----ISIC_Codes_.txt			values of 2011 to the truth of 2009 under the assumption to 2009 and 2011 economies of India were similar
