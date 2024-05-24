@@ -12,6 +12,7 @@ from Tool_functions import step_one_cleaning
 from Tool_functions import step_two_cleaning
 from Tool_functions import remove_asterisks
 from Tool_functions import tool_loop
+from config import GOOGLE_API_KEY
 import sys
 
 
@@ -30,14 +31,15 @@ ISIC_old.fillna("", inplace = True)
 ISIC_new.fillna("", inplace = True)
 
 codes = np.array(ISIC_new["code"])
-if len(sys.argv) > 4:
+if len(sys.argv) > 5:
     mod = sys.argv[4]
     out_file = sys.argv[5]
-    correspondence_table = tool_loop(codes, corr_table=corr_table, ISIC_old=ISIC_old, ISIC_new=ISIC_new, mod = mod)
+    correspondence_table = tool_loop(codes, corr_table=corr_table, ISIC_old=ISIC_old, ISIC_new=ISIC_new, key = GOOGLE_API_KEY, mod = mod)
 
 else: 
     out_file = sys.argv[4]
-    correspondence_table = tool_loop(codes, corr_table=corr_table, ISIC_old=ISIC_old, ISIC_new=ISIC_new, mod = 'gemini-pro')
+    correspondence_table = tool_loop(codes, corr_table=corr_table, ISIC_old=ISIC_old, ISIC_new=ISIC_new, key = GOOGLE_API_KEY, mod = 'gemini-pro')
 
 correspondence_table.to_excel(out_file, index= False)
 
+correspondence_table = tool_loop(codes, corr_table=corr_table, ISIC_old=ISIC_old, ISIC_new=ISIC_new, key = GOOGLE_API_KEY, mod = 'gemini-pro')

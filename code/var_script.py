@@ -10,6 +10,7 @@ from Tool_funtctions import step_one_cleaning
 from Tool_funtctions import step_two_cleaning
 from Tool_funtctions import remove_asterisks
 from Tool_funtctions import tool_loop
+from config import GOOGLE_API_KEY
 import pandas as pd
 import numpy as np
 import time
@@ -49,11 +50,11 @@ for i in range(len(names)):
     max_retries = 5
     for j in range(1, max_retries):
         try:
-            test = tool_loop(multi_codes, corr_table = corr_table, ISIC_old = ISIC_old, ISIC_new = ISIC_new, mod = 'gemini-pro')
+            test = tool_loop(multi_codes, corr_table = corr_table, ISIC_old = ISIC_old, ISIC_new = ISIC_new, key = GOOGLE_API_KEY, mod = 'gemini-pro')
             break
         except Exception as e:
             if j == max_retries:
-                print(f"Reached maximum retries ({max_retries}). Giving up.")
+                print(f"Reached maximum retries ({max_retries}). Giving up.", e)
             else: 
                 time.sleep(.1)
     prop_df[names[i]] = test['Proportion of Jobs']

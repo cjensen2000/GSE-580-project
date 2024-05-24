@@ -5,7 +5,7 @@ Created on Fri Apr 19 10:16:32 2024
 @author: Caleb Jensen
 """
 
-def step_one_cleaning(prompt, mod = 'gemini-pro'):  
+def step_one_cleaning(prompt, key, mod = 'gemini-pro'):  
     from io import StringIO
     import csv
     import pathlib
@@ -14,10 +14,10 @@ def step_one_cleaning(prompt, mod = 'gemini-pro'):
     import numpy as np
     import pandas as pd
     ## Need to change this line to get your own API key if possible
-    from config import GOOGLE_API_KEY
+    #from config import GOOGLE_API_KEY
     
     #setting the model and API key
-    genai.configure(api_key=GOOGLE_API_KEY)
+    genai.configure(api_key=key)
     model = genai.GenerativeModel(mod)
     
     # Input string prompt to the google model 
@@ -52,7 +52,7 @@ def strip_non_digits(text):
     return re.sub(r"[^\d.]", "", text)
 
 
-def step_two_cleaning(prompt, code, mod = 'gemini-pro'):
+def step_two_cleaning(prompt, code, key, mod = 'gemini-pro'):
     import numpy as np
     import pandas as pd
     from collections import Counter
@@ -62,7 +62,7 @@ def step_two_cleaning(prompt, code, mod = 'gemini-pro'):
         #max_retries = 10
         #for attempt in range(1, max_retries + 1):
             #try:
-        df = step_one_cleaning(prompt, mod)
+        df = step_one_cleaning(prompt, key, mod)
                 #break
             #except Exception as e:
                 #if attempt == max_retries:
@@ -147,7 +147,7 @@ def make_prompt(digits, four_code, corr_table, ISIC_old, ISIC_new):
     return prompt
 
 ## main loop to create codes 
-def tool_loop(codes, corr_table, ISIC_old, ISIC_new, mod = 'gemini-pro'):
+def tool_loop(codes, corr_table, ISIC_old, ISIC_new, key, mod = 'gemini-pro'):
     import pandas as pd
     import time
     df_big = pd.DataFrame({'version_4': [], 'version_3.1': [], "Proportion of Jobs": []})
@@ -166,11 +166,11 @@ def tool_loop(codes, corr_table, ISIC_old, ISIC_new, mod = 'gemini-pro'):
             for i in range(1+max_attempts):
                 try:
                     prompt = make_prompt("four", four_code, corr_table, ISIC_old = ISIC_old, ISIC_new = ISIC_new)
-                    df_2 = step_two_cleaning(prompt, four_code, mod)
+                    df_2 = step_two_cleaning(prompt, four_code, key, mod)
                     break
                 except Exception as e:
                     if i == max_attempts:
-                        return(print("it broke"))
+                        return(print("it broke", e))
             df_big = pd.concat([df_big, df_2])
             df_big = df_big[df_big.notna().all(axis=1)]
             df_big = df_big.reset_index(drop = True)
