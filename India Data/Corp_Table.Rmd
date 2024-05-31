@@ -1,0 +1,1326 @@
+
+
+```{r}
+data <- read_dta("IND_2009_EUS_V01_M_V06_A_GLD_ALL.dta")
+```
+
+```{r}
+data2 <- read_dta("IND_2011_EUS_V01_M_V06_A_GLD_ALL.dta")
+```
+
+
+Load in the correspondence table; the code below creates a correspondence table between ISIC 4 and ISIC 3.1
+```{r}
+library(stringr)
+correspondence <- read.csv("ISIC_words.txt", header = TRUE, stringsAsFactors = FALSE)
+```
+
+
+Drops the detail column, aggregates the data based on ISIC3.1 code
+```{r}
+correspondence <- correspondence[, !(names(correspondence) == "Detail")]
+
+grouped_data <- split(correspondence$ISIC31code, correspondence$ISIC4code)
+
+result_df <- data.frame(ISIC4code = character(), ISIC31code = character(), stringsAsFactors = FALSE)
+
+for (code in names(grouped_data)) {
+  isic31_codes <- unique(grouped_data[[code]])
+  
+  for (isic31_code in isic31_codes) {
+    result_df <- rbind(result_df, data.frame(ISIC4code = code, ISIC31code = isic31_code))
+  }
+}
+
+result_df$ISIC4code <- str_pad(result_df$ISIC4code, width = 4, side = "left", pad = "0")
+
+result_df$ISIC31code <- str_pad(result_df$ISIC31code, width = 4, side = "left", pad = "0")
+
+```
+
+
+Creates the correspondence table
+```{r}
+
+get_correspondence_table <- function(correspondence_data) {
+  agg_data <- aggregate(ISIC31code ~ ISIC4code, data = correspondence_data, FUN = unique)
+  
+  return(agg_data)
+}
+
+# For some reason R drops the 0 in front of codes like 0111, so this restores them
+correspondence_table <- get_correspondence_table(result_df)
+correspondence_table$ISIC4code <- sprintf("%s", correspondence_table$ISIC4code)
+
+
+```
+
+
+Creates a new dataframe with the 2011 ISIC code data to make prediction table; drops empty entries.
+```{r}
+ISIC4 <- data2$industrycat_isic_year
+
+ISIC4[ISIC4 == ""] <- NA
+
+
+df <- data.frame(ISIC4 =ISIC4, ISIC31 = NA)
+# ISIC31 is empty so it can be populated in the next step
+```
+
+
+
+Matches Indian ISIC codes with the corresponding ones in 3.1.
+```{r}
+
+df$ISIC4 <- as.character(df$ISIC4)
+correspondence_table$ISIC4code <- as.character(correspondence_table$ISIC4code)
+
+for (i in seq_along(df$ISIC4)) {
+  code <- df$ISIC4[i]
+  match <- correspondence_table$ISIC4code == code
+  
+  if (any(match, na.rm = TRUE)) {
+    df$ISIC31[i] <- correspondence_table$ISIC31code[match]
+  } else {
+    df$ISIC31[i] <- NA
+  }
+}
+
+```
+
+Goes through each option and selects one for a new column, called selected_options, also takes probabilities and adds them to a new column as well. Prediction table!
+```{r}
+select_option_with_probability <- function(options) {
+  if (is.vector(options)) {
+    selected_option <- sample(options, 1)
+    
+    probability <- 1 / length(options)
+    
+    return(list(selected_option = selected_option, probability = probability))
+  } else if (is.list(options)) {
+    selected_option <- sample(options, 1)
+    
+    probability <- 1 / length(options)
+    
+    return(list(selected_option = selected_option, probability = probability))
+  } else {
+    return(NA)
+  }
+}
+
+selected_options <- lapply(df$ISIC31, select_option_with_probability)
+
+df$selected_option <- sapply(selected_options, function(x) x$selected_option)
+df$probability <- sapply(selected_options, function(x) x$probability)
+
+```
+
+COUNTING THE NUMBER OF UNIQUE ISIC 4 CODES
+```{r}
+num_unique_isic4 <- length(unique(df$ISIC4))
+print(paste("Number of unique ISIC4 codes:", num_unique_isic4))
+```
+```{r}
+stuff <- sapply(df$selected_option, categorize_code)
+
+stuffdf <- as_data_frame(stuff)
+unique(stuffdf$value)
+
+
+
+data2$backcode <- df$selected_option
+data2$categ31 <- stuff
+
+```
+
+```{r}
+stuff <- sapply(df$selected_option, categorize_code)
+
+stuffdf <- as_data_frame(stuff)
+
+data2$backcode <- df$selected_option
+data2$categ31 <- stuff
+
+data2$backcode[is.na(data2$backcode)] <- ""
+
+
+counts3 <- table(data2$backcode)
+
+count_df3 <- as.data.frame(counts3)
+colnames(count_df3)[1] <- "ISIC"
+summary(count_df3$Freq)
+
+```
+
+
+```{r}
+count_df3$ISIC <- as.character(count_df3$ISIC)
+
+count_df3$Category <- sapply(count_df3$ISIC, categorize_code)
+
+category_counts3 <- table(count_df3$Category)
+category_counts_df3 <- as.data.frame(category_counts3)
+names(category_counts_df3) <- c("Category", "Count")
+
+
+category_counts_df3$Category <- as.factor(category_counts_df3$Category)
+
+summed_freqs3 <- aggregate(Freq ~ Category, data = count_df3, FUN = sum)
+
+proportion_in_category3 <- aggregate(Freq ~ Category, data = count_df3, FUN = calculate_proportion)
+
+summed_freqs3$proportion <- proportion_in_category3$Freq
+
+print(summed_freqs3)
+```
+
+
+
+Location is urban if 1 and rural is 0
+```{r}
+
+count_df3 <- data.frame(ISIC = data2$backcode, Urban = data2$urban, Category = data2$categ31)
+
+
+
+Urban_in_category3 <- aggregate(Urban ~ Category, data = count_df3, FUN = sum)
+
+print(Urban_in_category3)
+
+calculate_proportion <- function(x) {
+  sum(x) / length(x)
+}
+
+Urban_proportion_in_category3 <- aggregate(Urban ~ Category, data = count_df3, FUN = calculate_proportion)
+
+summed_freqs3$urban <- Urban_proportion_in_category3$Urban
+
+
+
+print(Urban_proportion_in_category3)
+
+```
+
+Calculate the number of males
+```{r}
+
+count_df3 <- data.frame(ISIC = data2$backcode, Male = data2$male, Category = data2$categ31)
+
+males_in_category3 <- aggregate(Male ~ Category, data = count_df3, FUN = sum)
+
+print(males_in_category3)
+
+calculate_proportion <- function(x) {
+  sum(x) / length(x)
+}
+
+Male_proportion_in_category3 <- aggregate(Male ~ Category, data = count_df3, FUN = calculate_proportion)
+
+summed_freqs3$males <- Male_proportion_in_category3$Male
+
+
+print(Male_proportion_in_category3)
+```
+
+Literacy where 1 can read and write and 0 is cannot 
+
+```{r}
+count_df3 <- data.frame(ISIC = data2$backcode, Literacy = data2$literacy, Category = data2$categ31)
+
+Literacy_in_category3 <- aggregate(Literacy ~ Category, data = count_df3, FUN = sum)
+
+print(Literacy_in_category3)
+
+calculate_proportion <- function(x) {
+  sum(x) / length(x)
+}
+
+Literacy_proportion_in_category3 <- aggregate(Literacy ~ Category, data = count_df3, FUN = calculate_proportion)
+
+summed_freqs3$literacy <- Literacy_proportion_in_category3$Literacy
+
+
+print(Literacy_proportion_in_category3)
+```
+
+Calculate the average age
+```{r}
+
+age_df3 <- data.frame(ISIC = data2$backcode, Age = data2$age, Category = data2$categ31)
+
+average_age_in_category3 <- aggregate(Age ~ Category, data = age_df3, FUN = mean, na.rm = TRUE)
+
+summed_freqs3$avg_age <- average_age_in_category3$Age
+
+
+print(average_age_in_category3)
+
+```
+
+Calculate average household size
+```{r}
+hsize_df3 <- data.frame(ISIC = data2$backcode, HSize = data2$hsize, Category = data2$categ31)
+
+average_hsize_in_category3 <- aggregate(HSize ~ Category, data = hsize_df3, FUN = mean, na.rm = TRUE)
+
+summed_freqs3$avg_hsize <- average_hsize_in_category3$HSize
+
+
+print(average_hsize_in_category3)
+```
+
+School 1 is attended and 0 it not
+```{r}
+count_df3 <- data.frame(ISIC = data2$backcode, School = data2$school, Category = data2$categ31)
+
+School_in_category3 <- aggregate(School ~ Category, data = count_df3, FUN = sum)
+
+print(School_in_category3)
+
+
+School_proportion_in_category3 <- aggregate(School ~ Category, data = count_df3, FUN = calculate_proportion)
+
+summed_freqs3$school <- School_proportion_in_category3$School
+
+print(School_proportion_in_category3)
+```
+Marital Status
+```{r}
+# Check labels for what the values of marital mean.
+unique(data2$marital)
+```
+
+```{r}
+marital_counts <- data2 %>%
+  group_by(categ31, marital) %>%
+  summarise(count = n(), .groups = 'drop')
+print(marital_counts)
+
+marital_summary <- marital_counts %>%
+  group_by(categ31) %>%
+  summarise(marital_vector = list(setNames(count, marital)), .groups = 'drop')
+
+summed_freqs3 <- left_join(summed_freqs3, marital_summary, by = c("Category" = "categ31"))
+
+```
+labor status
+```{r}
+# check label for what the values of lstatus mean
+unique(data2$lstatus)
+```
+
+```{r}
+labor_counts <- data2 %>%
+  group_by(categ31, lstatus) %>%
+  summarise(count = n(), .groups = 'drop')
+print(labor_counts)
+
+labor_summary <- labor_counts %>%
+  group_by(categ31) %>%
+  summarise(labor_vector = list(setNames(count, lstatus)), .groups = 'drop')
+
+summed_freqs3 <- left_join(summed_freqs3, labor_summary, by = c("Category" = "categ31"))
+
+```
+
+Vocational status
+```{r}
+count_df3 <- data.frame(ISIC = data2$backcode, vocation = data2$vocational, Category = data2$categ31)
+
+vocation_in_category3 <- aggregate(vocation ~ Category, data = count_df3, FUN = sum)
+
+vocation_proportion_in_category3 <- aggregate(vocation ~ Category, data = count_df3, FUN = calculate_proportion)
+
+summed_freqs3$vocation <- vocation_proportion_in_category3$vocation
+
+
+print(vocation_proportion_in_category2)
+```
+
+marital status
+```{r}
+count_df3 <- data.frame(ISIC = data2$backcode, Marital = data2$marital2, Category = data2$categ31)
+
+marital_in_category3 <- aggregate(Marital ~ Category, data = count_df3, FUN = sum)
+
+print(marital_in_category3)
+
+calculate_proportion <- function(x) {
+  sum(x) / length(x)
+}
+
+Marital_proportion_in_category3 <- aggregate(Marital ~ Category, data = count_df3, FUN = calculate_proportion)
+
+summed_freqs3$marital <- Marital_proportion_in_category3$Marital
+
+print(Marital_proportion_in_category3)
+```
+
+```{r}
+count_df3 <- data.frame(ISIC = data2$backcode, labor = data2$labor, Category = data2$categ31)
+
+labor_in_category3 <- aggregate(labor ~ Category, data = count_df3, FUN = sum)
+
+print(labor_in_category3)
+
+labor_proportion_in_category3 <- aggregate(labor ~ Category, data = count_df3, FUN = calculate_proportion)
+
+summed_freqs3$labor <- labor_proportion_in_category3$labor
+
+print(labor_proportion_in_category3)
+```
+
+Average wages
+```{r}
+count_df3 <- data.frame(ISIC = data2$backcode, wages = data2$wage_no_compen, Category = data2$categ31)
+
+wages_in_category3 <- aggregate(wages ~ Category, data = count_df3, FUN = sum)
+
+wages_proportion_in_category3 <- aggregate(wages ~ Category, data = count_df3, FUN = mean, na.rm = TRUE)
+
+summed_freqs3$avg_wages <- wages_proportion_in_category3$wages
+
+
+print(wages_proportion_in_category3)
+```
+Average hours worked
+```{r}
+count_df3 <- data.frame(ISIC = data2$backcode, hours = data2$whours, Category = data2$categ31)
+
+hours_in_category3 <- aggregate(hours ~ Category, data = count_df3, FUN = sum)
+
+hours_proportion_in_category3 <- aggregate(hours ~ Category, data = count_df3, FUN = mean, na.rm = TRUE)
+
+summed_freqs3$avg_hours <- hours_proportion_in_category3$hours
+
+
+print(hours_proportion_in_category3)
+```
+
+
+Below drops the union territories from the dataframe, as they're small enough that they won't impact our calculations so much. Based on this website here: https://knowindia.india.gov.in/states-uts/
+Note: probably going to look at population/union territory size and revise which ones to drop. 
+```{r}
+
+data_filtered2 <- data2 %>%
+  filter(!is.na(industrycat_isic_year) & industrycat_isic_year != "")
+
+
+names_to_drop <- c(
+  "35  - Andaman & Nicobar Islands",
+  "4 - Chandigarh",
+  "26 - Dadra & Nagar Haveli",
+  "7 - Delhi",
+  "1 - Jammu & Kashmir",
+  "31 - Lakshadweep",
+  "34 - Pondicheri"
+)
+
+
+frequency_table2 <- table(data_filtered2$subnatid1)
+
+sorted_frequencies2 <- sort(frequency_table2)
+
+
+for (name in names(sorted_frequencies2)) {  # Iterate over unique names
+  count <- frequency_table2[name]  # Get the count for each unique name
+  print(paste("Number of", name, ":", count))  # Print the name and its count
+}
+
+territories2 <- as.data.frame(frequency_table2)
+
+```
+
+
+
+```{r}
+names_to_drop <- c(
+  "35  - Andaman & Nicobar Islands",
+  "4 - Chandigarh",
+  "26 - Dadra & Nagar Haveli",
+  "7 - Delhi",
+  "1 - Jammu & Kashmir",
+  "31 - Lakshadweep",
+  "34 - Pondicheri"
+)
+
+df_filtered <- data2 %>%
+  filter(!data2$subnatid1 %in% names_to_drop)  # Filter out rows where 'name' matches 'names_to_drop'
+
+print(unique(df_filtered$subnatid1))
+
+```
+
+
+
+To replicate this, download the india_state_boundary .shp, .dbf, and .shx files from https://github.com/AnujTiwari/India-State-and-Country-Shapefile-Updated-Jan-2020
+```{r}
+library(stringr)
+
+library(ggplot2)
+library(sf)
+library(stringdist)
+
+
+india_shapefile <- st_read("India_State_Boundary.shp")
+
+territories2$subnatid1_clean <- gsub("^[0-9]+ - ", "", territories2$Var1)
+
+
+
+india_shapefile$State_Name <- tolower(trimws(india_shapefile$State_Name))
+territories2$subnatid1_clean <- tolower(trimws(territories2$subnatid1_clean))
+
+correction_map <- list(
+  "orissa" = "odisha",
+  "chhattisgarh" = "chhattishgarh",
+  "gujrat" = "gujarat",
+  "maharastra" = "maharashtra",
+  "tamil nadu" = "tamilnadu",
+  "pondicheri" = "puducherry",
+  "andaman & nicober" = "andaman & nicobar",
+  "uttaranchal" = "uttarakhand",
+  "jammu & kashmir" = "jammu and kashmir"
+)
+
+mutation2 <- territories2 %>%
+  mutate(State_Name = sapply(subnatid1_clean, function(x) {
+    if (x %in% names(correction_map)) {
+      return(correction_map[[x]])
+    } else {
+      return(x)  
+    }
+  }))
+daman_and_dadra_sum <- mutation2 %>%
+  filter(State_Name %in% c("daman & diu", "dadra & nagar haveli")) %>%
+  summarise(
+    State_Name = "daman and diu and dadra and nagar haveli",
+    Freq = sum(Freq)
+  )
+
+# Append the new row to the original data frame
+mutation2 <- bind_rows(mutation2, daman_and_dadra_sum) 
+```
+
+Of some note, Ladakh was part of Jammu and Kashmir until 2019 when it became a separate territory, so the data from Jammu and Kashmir is spread among Ladakh as well. 
+Similarly, Telengana didn't become a state until 2014. Until that time, it had been a part of Andhra Pradesh.
+```{r}
+merged_data <- merge(india_shapefile, mutation2, by = "State_Name",all.x=TRUE)
+
+# Plot the merged data
+ggplot(data = merged_data) +
+  geom_sf(aes(fill = Freq), color = "black", lwd = 0.5) + 
+  geom_sf_text(aes(label = State_Name), color="red", size = 2, check_overlap = FALSE) +  # Add state name labels
+  theme_minimal() +
+  labs(
+    title = "Map of India with number of observations in each state or union territory",
+    fill = "number of observations"
+  )
+# Unfortunately, sizing the labels as they are mean some of them have been cut off and cannot be seen. You can adjust the size of the label, but break out the reading glasses if you do. 
+```
+
+```{r}
+dominant_category3 <- data_filtered2 %>%
+  group_by(subnatid1, categ31) %>%
+  tally() %>%
+  group_by(subnatid1) %>%
+  filter(n == max(n)) %>%
+  select(subnatid1, categ31)
+
+
+
+print(dominant_category3)
+
+```
+
+```{r}
+
+dominant_category3$subnatid1_clean <- gsub("^[0-9]+ - ", "", dominant_category3$subnatid1)
+
+dominant_category3$subnatid1_clean <- tolower(trimws(dominant_category3$subnatid1_clean))
+
+mutate_category3 <- dominant_category3 %>%
+  mutate(State_Name = sapply(subnatid1_clean, function(x) {
+    if (x %in% names(correction_map)) {
+      return(correction_map[[x]])
+    } else {
+      return(x)  
+    }
+  }))
+
+
+
+merged_categories3 <- merge(india_shapefile, mutate_category3, by = "State_Name",all.x=TRUE)
+
+# Plot the merged data
+ggplot(merged_categories3) +
+  geom_sf(aes(fill = categ31)) +
+  scale_fill_viridis_d(option = "plasma", name = "Dominant Category") +
+  theme_minimal() +
+  labs(title = "Dominant Job Category by State in India",
+       subtitle = "Based on backcoded ISIC 4 to ISIC 3.1 job code data")
+```
+
+
+
+
+Below takes the squared differences between the 2009 codes and the backcoded 2011 codes. 
+```{r}
+
+changefreq <- (summed_freqs$Freq - summed_freqs3$Freq)**2
+
+changedf <- as.data.frame(summed_freqs$Category)
+
+changedf$Freq <- changefreq
+
+changedf$urban <- (summed_freqs$urban - summed_freqs3$urban)**2
+
+changedf$males <- (summed_freqs$males - summed_freqs3$males)**2
+
+changedf$literacy <- (summed_freqs$literacy - summed_freqs3$literacy)**2
+
+changedf$avg_age <- (summed_freqs$avg_age - summed_freqs3$avg_age)**2
+
+changedf$h_size <- (summed_freqs$avg_hsize - summed_freqs3$avg_hsize)**2
+
+changedf$school <- (summed_freqs$school - summed_freqs3$school)**2
+
+changedf$marital <- (summed_freqs$marital - summed_freqs3$marital)**2
+
+changedf$labor <- (summed_freqs$labor - summed_freqs3$marital)**2
+
+changedf$vocation <- (summed_freqs$vocation - summed_freqs3$vocation)**2
+
+changedf$wage <- (summed_freqs$avg_wages - summed_freqs3$avg_wages)**2
+
+changedf$hours <- (summed_freqs$avg_hours - summed_freqs3$avg_hours)**2
+
+
+print(changedf)
+
+
+
+
+
+```
+next goal: take the correspondence table created by our tool, look at the proportions of each ISIC code it gives, and assign backcoded values to ISIC 4 based on those proportions. I.e ISIC 4 code 0162 goes to ISIC 3.1 0140 with proportion 0.75 and to ISIC 3.1 2892 with proportion 0.25, so code 75% of the India entries 0162 as 0140 and 25% of them as 2892.
+```{r}
+corresp2 <- read_xlsx("correspondence_table (2).xlsx")
+names(corresp2)[names(corresp2)=="Proportion of Jobs"] <- "proportion"
+names(corresp2)
+
+# new_row <- data.frame(version_4 = NA, version_3.1 = NA, proportion = 1)
+
+# corresp2 <- rbind(corresp2, new_row)
+
+# new_row2 <- data.frame(version_4 = "", version_3.1 = "", proportion = 1)
+# corresp2 <- rbind(corresp2, new_row2)
+
+
+```
+
+
+```{r}
+unique_isic <- unique(data2$industrycat_isic)
+
+# Identify ISIC codes present in data2 but missing from corresp2 (version_4)
+missing_isic <- unique_isic[!(unique_isic %in% corresp2$version_4)]
+
+# Check if there are any missing codes
+if (length(missing_isic) > 0) {
+  warning(paste("ISIC codes missing from corresp2:", paste(missing_isic, collapse = ", ")))
+} else {
+  message("All ISIC codes in data2 are present in corresp2 (version_4).")
+}
+```
+```{r}
+unique_isic <- unique(data2$industrycat_isic)
+
+# Identify ISIC codes present in data2 but missing from corresp2 (version_4)
+missing_isic <- unique_isic[!(unique_isic %in% corresp2$version_4)]
+
+# Check if there are any missing codes
+if (length(missing_isic)-1 > 0) {
+  warning(paste("ISIC codes missing from corresp2:", paste(missing_isic, collapse = ", ")))
+} else {
+  message("All ISIC codes in data2 are present in corresp2 (version_4).")
+}
+
+num_non_one_proportions <- sum(!corresp2$proportion == 1)
+cat("Number of entries with proportions not equal to 1:", num_non_one_proportions)
+
+```
+
+
+```{r}
+test1 <- sum(data2$industrycat_isic=="0113")
+backcoded <- corresp2[corresp2$version_4 == "0113", "version_3.1"]
+proportions_0113 <- corresp2[corresp2$version_4 == "0113", "proportion"]
+counts_0113 <- c(round((test1 * proportions_0113)))
+counts_0113 <- as.data.frame(counts_0113)
+counts_0113$proportion[1]
+```
+
+```{r}
+
+data2$backcoding <- 0
+
+replace_indices <- which(data2$backcoding == "0113")
+
+data2$backcoding[replace_indices[1:counts_0113$proportion[1]]] <- backcoded$version_3.1[1]
+data2$backcoding[replace_indices[(counts_0113$proportion[1] + 1):counts_0113$proportion[1]]] <- backcoded$version_3.1[2]
+
+print(sum(data2$backcoding=="0111"))
+
+data2$industrycat_isic <- as.character(data2$industrycat_isic)
+
+# Now perform the sum operation again
+num_0111 <- sum(data2$industrycat_isic == "0111")
+cat("Number of entries for code 0111:", num_0111, "\n")
+
+```
+
+
+```{r}
+
+replacements_v1 <- round(proportions_0113$proportion[1] * sum(data2$industrycat_isic == "0113"))
+replacements_v2 <- sum(data2$industrycat_isic == "0113") - replacements_v1
+
+# Identify indices for "0113" entries in data2
+replace_indices <- which(data2$industrycat_isic == "0113")
+
+# Assign versions based on calculated replacements
+data2$backcoding[replace_indices[1:replacements_v1]] <- backcoded$version_3.1[1]
+data2$backcoding[replace_indices[(replacements_v1 + 1):length(replace_indices)]] <- backcoded$version_3.1[2]
+
+```
+
+
+```{r}
+perform_backcoding <- function(data, correspondence) {
+
+  data$backcoding <- NA
+  data$backcoding <- as.character(data$backcoding)
+  
+  for (code in unique(data$industrycat_isic)) {
+    cat("Processing ISIC code:", code, "\n")
+    
+    correspond_rows <- correspondence[correspondence$version_4 == code, ]
+    print(correspond_rows)
+    
+    if (nrow(correspond_rows) == 0) next
+    
+    num_entries <- sum(data$industrycat_isic == code)
+    cat("Number of entries for code", code, ":", num_entries, "\n")
+    
+    proportions <- correspond_rows$proportion
+    cat("Proportions for code", code, ":", proportions, "\n")
+    
+    replacement_counts <- (proportions * num_entries)
+    cat("Replacement counts for code", code, ":", replacement_counts, "\n")
+    
+    # Handle NA values in replacement_counts
+    if (any(is.na(replacement_counts))) {
+      warning(paste("NA values found in replacement counts for ISIC code:", code))
+      next
+    }
+    
+    # Adjust replacement counts to ensure the total matches num_entries
+    if (sum(replacement_counts) != num_entries) {
+      diff <- num_entries - sum(replacement_counts)
+      adjustment <- sign(diff) * (1:abs(diff))
+      replacement_counts[seq_along(adjustment)] <- replacement_counts[seq_along(adjustment)] + adjustment
+    }
+    
+    cat("Adjusted replacement counts for code", code, ":", replacement_counts, "\n")
+    
+    # Identify indices for the current ISIC code in data
+    replace_indices <- which(data$industrycat_isic == code)
+
+    # Assign backcoded values based on calculated replacements
+    start_idx <- 1
+    for (i in 1:nrow(correspond_rows)) {
+      end_idx <- start_idx + replacement_counts[i] - 1
+      # Ensure indices are within bounds
+      end_idx <- min(end_idx, length(replace_indices))
+      if (start_idx <= end_idx) {
+        data$backcoding[replace_indices[start_idx:end_idx]] <- correspond_rows$version_3.1[i]
+        start_idx <- end_idx + 1
+      }
+    }
+  }
+  
+  return(data)
+}
+
+data2 <- perform_backcoding(data2, corresp2)
+
+```
+
+```{r}
+check <- data.frame(industrycat_isic = data2$industrycat_isic, backcoding = data2$backcoding)
+
+head(check)
+```
+
+```{r}
+
+validate_proportions <- function(data, correspondence) {
+  # Ensure that both columns are character type
+  data$industrycat_isic <- as.character(data$industrycat_isic)
+  data$backcoding <- as.character(data$backcoding)
+  
+  errors <- 0
+  differences <- c()
+  
+  # Check for any NAs in the backcoding column
+  if (any(is.na(data$backcoding))) {
+    cat("NA values found in backcoding column.\n")
+  } else {
+    cat("No NA values in backcoding column.\n")
+  }
+  
+  # Print unique values in the backcoding column
+  unique_backcoding <- unique(data$backcoding)
+  
+  for (code in unique(data$industrycat_isic)) {
+    original_indices <- which(data$industrycat_isic == code)
+    original_count <- length(original_indices)
+    correspond_rows <- correspondence[correspondence$version_4 == code, ]
+    
+    if (nrow(correspond_rows) == 0) {
+      cat("No correspondence found for code:", code, "\n")
+      next
+    }
+    
+    for (i in 1:nrow(correspond_rows)) {
+      backcode <- correspond_rows$version_3.1[i]
+      expected_proportion <- correspond_rows$proportion[i]
+      expected_count <- round(original_count * expected_proportion)
+      
+      if (is.na(backcode) || is.na(expected_proportion)) {
+        cat("NA values found for code:", code, "in correspondence table.\n")
+        next
+      }
+      
+      # Ensure that backcode is of character type
+      backcode <- as.character(backcode)
+      
+      # Filter data to the relevant indices for the original code
+      actual_count <- sum(data$backcoding[original_indices] == backcode)
+      
+      if (is.na(actual_count)) {
+        cat("Actual count is NA for backcode:", backcode, "\n")
+        next
+      }
+      
+      if (expected_count != actual_count) {
+        diff <- expected_count - actual_count
+        differences <- c(differences, diff)
+        
+        cat("Discrepancy found for code", code, "->", backcode, "\n")
+        cat("Expected count:", expected_count, "Actual count:", actual_count, "\n")
+        cat("Difference between expected and actual:", diff, "\n")
+        errors <- errors + 1
+        
+      }
+    }
+  }
+  
+  if (length(differences) > 0) {
+    mean_diff <- mean(differences)
+    median_diff <- median(differences)
+    mode_diff <- as.numeric(names(sort(table(differences), decreasing = TRUE))[1])
+    
+    cat("Number of errors:", errors, "\n")
+    cat("highest difference:", max(abs((differences))))
+    cat("\nSummary of differences:\n")
+    cat("Mean difference:", mean_diff, "\n")
+    cat("Median difference:", median_diff, "\n")
+    cat("Mode difference:", mode_diff, "\n")
+  } else {
+    cat("No discrepancies found.\n")
+  }
+}
+
+check$industrycat_isic <- as.character(check$industrycat_isic)
+check$backcoding <- as.character(check$backcoding)
+check <- na.omit(check)
+
+validate_proportions(check, corresp2)
+
+```
+
+
+```{r}
+
+
+
+
+counts4 <- table(data2$backcoding)
+
+count_df4 <- as.data.frame(counts3)
+colnames(count_df4)[1] <- "ISIC"
+summary(count_df4$Freq)
+```
+
+
+```{r}
+count_df4$ISIC <- as.character(count_df4$ISIC)
+
+count_df4$Category <- sapply(count_df4$ISIC, categorize_code)
+
+data2$categs <- sapply(data2$backcoding, categorize_code)
+
+category_counts4 <- table(count_df4$Category)
+category_counts_df4 <- as.data.frame(category_counts4)
+names(category_counts_df4) <- c("Category", "Count")
+
+
+category_counts_df4$Category <- as.factor(category_counts_df4$Category)
+
+summed_freqs4 <- aggregate(Freq ~ Category, data = count_df4, FUN = sum)
+
+proportion_in_category4 <- aggregate(Freq ~ Category, data = count_df4, FUN = calculate_proportion)
+
+summed_freqs4$proportion <- proportion_in_category4$Freq
+
+print(summed_freqs4)
+
+
+```
+
+
+
+
+Location is urban if 1 and rural is 0
+```{r}
+
+count_df4 <- data.frame(ISIC = data2$backcoding, Urban = data2$urban, Category = data2$categs)
+
+
+
+Urban_in_category4 <- aggregate(Urban ~ Category, data = count_df4, FUN = sum)
+
+print(Urban_in_category4)
+
+calculate_proportion <- function(x) {
+  sum(x) / length(x)
+}
+
+Urban_proportion_in_category4 <- aggregate(Urban ~ Category, data = count_df4, FUN = calculate_proportion)
+
+summed_freqs4$urban <- Urban_proportion_in_category4$Urban
+
+
+
+print(Urban_proportion_in_category4)
+
+```
+
+Calculate the number of males
+```{r}
+
+count_df4 <- data.frame(ISIC = data2$backcoding, Male = data2$male, Category = data2$categs)
+
+males_in_category4 <- aggregate(Male ~ Category, data = count_df4, FUN = sum)
+
+print(males_in_category4)
+
+Male_proportion_in_category4 <- aggregate(Male ~ Category, data = count_df4, FUN = calculate_proportion)
+
+summed_freqs4$males <- Male_proportion_in_category4$Male
+
+
+print(Male_proportion_in_category4)
+```
+
+Literacy where 1 can read and write and 0 is cannot 
+
+```{r}
+count_df4 <- data.frame(ISIC = data2$backcoding, Literacy = data2$literacy, Category = data2$categs)
+
+Literacy_in_category4 <- aggregate(Literacy ~ Category, data = count_df4, FUN = sum)
+
+print(Literacy_in_category4)
+
+Literacy_proportion_in_category4 <- aggregate(Literacy ~ Category, data = count_df4, FUN = calculate_proportion)
+
+summed_freqs4$literacy <- Literacy_proportion_in_category4$Literacy
+
+
+print(Literacy_proportion_in_category4)
+```
+
+Calculate the average age
+```{r}
+
+age_df4 <- data.frame(ISIC = data2$backcoding, Age = data2$age, Category = data2$categs)
+
+average_age_in_category4 <- aggregate(Age ~ Category, data = age_df4, FUN = mean, na.rm = TRUE)
+
+summed_freqs4$avg_age <- average_age_in_category4$Age
+
+
+print(average_age_in_category4)
+
+```
+
+Calculate average household size
+```{r}
+hsize_df4 <- data.frame(ISIC = data2$backcoding, HSize = data2$hsize, Category = data2$categs)
+
+average_hsize_in_category4 <- aggregate(HSize ~ Category, data = hsize_df4, FUN = mean, na.rm = TRUE)
+
+summed_freqs4$avg_hsize <- average_hsize_in_category4$HSize
+
+
+print(average_hsize_in_category4)
+```
+
+School 1 is attended and 0 it not
+```{r}
+count_df4 <- data.frame(ISIC = data2$backcoding, School = data2$school, Category = data2$categs)
+
+School_in_category4 <- aggregate(School ~ Category, data = count_df4, FUN = sum)
+
+print(School_in_category4)
+
+
+School_proportion_in_category4 <- aggregate(School ~ Category, data = count_df4, FUN = calculate_proportion)
+
+summed_freqs4$school <- School_proportion_in_category4$School
+
+print(School_proportion_in_category4)
+```
+Marital Status
+```{r}
+# Check labels for what the values of marital mean.
+unique(data2$marital)
+```
+
+```{r}
+marital_counts <- data2 %>%
+  group_by(categs, marital) %>%
+  summarise(count = n(), .groups = 'drop')
+print(marital_counts)
+
+marital_summary <- marital_counts %>%
+  group_by(categs) %>%
+  summarise(marital_vector = list(setNames(count, marital)), .groups = 'drop')
+
+summed_freqs3 <- left_join(summed_freqs3, marital_summary, by = c("Category" = "categs"))
+
+```
+labor status
+```{r}
+# check label for what the values of lstatus mean
+unique(data2$lstatus)
+```
+
+```{r}
+labor_counts <- data2 %>%
+  group_by(categs, lstatus) %>%
+  summarise(count = n(), .groups = 'drop')
+print(labor_counts)
+
+labor_summary <- labor_counts %>%
+  group_by(categs) %>%
+  summarise(labor_vector = list(setNames(count, lstatus)), .groups = 'drop')
+
+summed_freqs3 <- left_join(summed_freqs3, labor_summary, by = c("Category" = "categs"))
+
+```
+
+Vocational status
+```{r}
+count_df4 <- data.frame(ISIC = data2$backcoding, vocation = data2$vocational, Category = data2$categs)
+
+vocation_in_category4 <- aggregate(vocation ~ Category, data = count_df4, FUN = sum)
+
+vocation_proportion_in_category4 <- aggregate(vocation ~ Category, data = count_df4, FUN = calculate_proportion)
+
+summed_freqs4$vocation <- vocation_proportion_in_category4$vocation
+
+
+print(vocation_proportion_in_category4)
+```
+
+marital status
+```{r}
+count_df4 <- data.frame(ISIC = data2$backcoding, Marital = data2$marital2, Category = data2$categs)
+
+marital_in_category4 <- aggregate(Marital ~ Category, data = count_df4, FUN = sum)
+
+print(marital_in_category4)
+
+Marital_proportion_in_category4 <- aggregate(Marital ~ Category, data = count_df4, FUN = calculate_proportion)
+
+summed_freqs4$marital <- Marital_proportion_in_category4$Marital
+
+print(Marital_proportion_in_category4)
+```
+
+```{r}
+count_df4 <- data.frame(ISIC = data2$backcoding, labor = data2$labor, Category = data2$categs)
+
+labor_in_category4 <- aggregate(labor ~ Category, data = count_df4, FUN = sum)
+
+print(labor_in_category4)
+
+labor_proportion_in_category4 <- aggregate(labor ~ Category, data = count_df4, FUN = calculate_proportion)
+
+summed_freqs4$labor <- labor_proportion_in_category4$labor
+
+print(labor_proportion_in_category4)
+```
+
+Average wages
+```{r}
+count_df4 <- data.frame(ISIC = data2$backcoding, wages = data2$wage_no_compen, Category = data2$categs)
+
+wages_in_category4 <- aggregate(wages ~ Category, data = count_df4, FUN = sum)
+
+wages_proportion_in_category4 <- aggregate(wages ~ Category, data = count_df4, FUN = mean, na.rm = TRUE)
+
+summed_freqs4$avg_wages <- wages_proportion_in_category4$wages
+
+
+print(wages_proportion_in_category4)
+```
+
+
+Average hours worked
+```{r}
+count_df4 <- data.frame(ISIC = data2$backcoding, hours = data2$whours, Category = data2$categs)
+
+hours_in_category4 <- aggregate(hours ~ Category, data = count_df4, FUN = sum)
+
+hours_proportion_in_category4 <- aggregate(hours ~ Category, data = count_df4, FUN = mean, na.rm = TRUE)
+
+summed_freqs4$avg_hours <- hours_proportion_in_category4$hours
+
+
+print(hours_proportion_in_category4)
+```
+
+
+
+Below drops the union territories from the dataframe, as they're small enough that they won't impact our calculations so much. Based on this website here: https://knowindia.india.gov.in/states-uts/
+Note: probably going to look at population/union territory size and revise which ones to drop. 
+```{r}
+
+data_filtered2 <- data2 %>%
+  filter(!is.na(industrycat_isic_year) & industrycat_isic_year != "")
+
+
+names_to_drop <- c(
+  "35  - Andaman & Nicobar Islands",
+  "4 - Chandigarh",
+  "26 - Dadra & Nagar Haveli",
+  "7 - Delhi",
+  "1 - Jammu & Kashmir",
+  "31 - Lakshadweep",
+  "34 - Pondicheri"
+)
+
+
+frequency_table2 <- table(data_filtered2$subnatid1)
+
+sorted_frequencies2 <- sort(frequency_table2)
+
+
+for (name in names(sorted_frequencies2)) {  # Iterate over unique names
+  count <- frequency_table2[name]  # Get the count for each unique name
+  print(paste("Number of", name, ":", count))  # Print the name and its count
+}
+
+territories2 <- as.data.frame(frequency_table2)
+
+```
+
+
+
+```{r}
+names_to_drop <- c(
+  "35  - Andaman & Nicobar Islands",
+  "4 - Chandigarh",
+  "26 - Dadra & Nagar Haveli",
+  "7 - Delhi",
+  "1 - Jammu & Kashmir",
+  "31 - Lakshadweep",
+  "34 - Pondicheri"
+)
+
+df_filtered <- data2 %>%
+  filter(!data2$subnatid1 %in% names_to_drop)  # Filter out rows where 'name' matches 'names_to_drop'
+
+print(unique(df_filtered$subnatid1))
+
+```
+
+
+
+To replicate this, download the india_state_boundary .shp, .dbf, and .shx files from https://github.com/AnujTiwari/India-State-and-Country-Shapefile-Updated-Jan-2020
+```{r}
+library(stringr)
+
+library(ggplot2)
+library(sf)
+library(stringdist)
+
+
+india_shapefile <- st_read("India_State_Boundary.shp")
+
+territories2$subnatid1_clean <- gsub("^[0-9]+ - ", "", territories2$Var1)
+
+
+
+india_shapefile$State_Name <- tolower(trimws(india_shapefile$State_Name))
+territories2$subnatid1_clean <- tolower(trimws(territories2$subnatid1_clean))
+
+correction_map <- list(
+  "orissa" = "odisha",
+  "chhattisgarh" = "chhattishgarh",
+  "gujrat" = "gujarat",
+  "maharastra" = "maharashtra",
+  "tamil nadu" = "tamilnadu",
+  "pondicheri" = "puducherry",
+  "andaman & nicober" = "andaman & nicobar",
+  "uttaranchal" = "uttarakhand",
+  "jammu & kashmir" = "jammu and kashmir"
+)
+
+mutation2 <- territories2 %>%
+  mutate(State_Name = sapply(subnatid1_clean, function(x) {
+    if (x %in% names(correction_map)) {
+      return(correction_map[[x]])
+    } else {
+      return(x)  
+    }
+  }))
+daman_and_dadra_sum <- mutation2 %>%
+  filter(State_Name %in% c("daman & diu", "dadra & nagar haveli")) %>%
+  summarise(
+    State_Name = "daman and diu and dadra and nagar haveli",
+    Freq = sum(Freq)
+  )
+
+# Append the new row to the original data frame
+mutation2 <- bind_rows(mutation2, daman_and_dadra_sum) 
+```
+
+Of some note, Ladakh was part of Jammu and Kashmir until 2019 when it became a separate territory, so the data from Jammu and Kashmir is spread among Ladakh as well. 
+Similarly, Telengana didn't become a state until 2014. Until that time, it had been a part of Andhra Pradesh.
+```{r}
+merged_data <- merge(india_shapefile, mutation2, by = "State_Name",all.x=TRUE)
+
+# Plot the merged data
+ggplot(data = merged_data) +
+  geom_sf(aes(fill = Freq), color = "black", lwd = 0.5) + 
+  geom_sf_text(aes(label = State_Name), color="red", size = 2, check_overlap = FALSE) +  # Add state name labels
+  theme_minimal() +
+  labs(
+    title = "Map of India with number of observations in each state or union territory",
+    fill = "number of observations"
+  )
+# Unfortunately, sizing the labels as they are mean some of them have been cut off and cannot be seen. You can adjust the size of the label, but break out the reading glasses if you do. 
+```
+
+```{r}
+dominant_category4 <- data_filtered2 %>%
+  group_by(subnatid1, categs) %>%
+  tally() %>%
+  group_by(subnatid1) %>%
+  filter(n == max(n)) %>%
+  select(subnatid1, categs)
+
+
+
+print(dominant_category4)
+
+```
+
+```{r}
+
+dominant_category4$subnatid1_clean <- gsub("^[0-9]+ - ", "", dominant_category4$subnatid1)
+
+dominant_category4$subnatid1_clean <- tolower(trimws(dominant_category4$subnatid1_clean))
+
+mutate_category4 <- dominant_category4 %>%
+  mutate(State_Name = sapply(subnatid1_clean, function(x) {
+    if (x %in% names(correction_map)) {
+      return(correction_map[[x]])
+    } else {
+      return(x)  
+    }
+  }))
+
+
+
+merged_categories4 <- merge(india_shapefile, mutate_category4, by = "State_Name",all.x=TRUE)
+
+# Plot the merged data
+ggplot(merged_categories4) +
+  geom_sf(aes(fill = categs)) +
+  scale_fill_viridis_d(option = "plasma", name = "Dominant Category") +
+  theme_minimal() +
+  labs(title = "Dominant Job Category by State in India",
+       subtitle = "Based on backcoded ISIC 4 to ISIC 3.1 job code data using our tool") 
+```
+
+```{r}
+
+change <- (summed_freqs$Freq - summed_freqs4$Freq)**2
+
+changes <- as.data.frame(summed_freqs$Category)
+
+changes$Freq <- change
+
+changes$urban <- (summed_freqs$urban - summed_freqs4$urban)**2
+
+changes$males <- (summed_freqs$males - summed_freqs4$males)**2
+
+changes$literacy <- (summed_freqs$literacy - summed_freqs4$literacy)**2
+
+changes$avg_age <- (summed_freqs$avg_age - summed_freqs4$avg_age)**2
+
+changes$h_size <- (summed_freqs$avg_hsize - summed_freqs4$avg_hsize)**2
+
+changes$school <- (summed_freqs$school - summed_freqs4$school)**2
+
+changes$marital <- (summed_freqs$marital - summed_freqs4$marital)**2
+
+changes$labor <- (summed_freqs$labor - summed_freqs4$marital)**2
+
+changes$vocation <- (summed_freqs$vocation - summed_freqs4$vocation)**2
+
+changes$wage <- (summed_freqs$avg_wages - summed_freqs4$avg_wages)**2
+
+changes$hours <- (summed_freqs$avg_hours - summed_freqs4$avg_hours)**2
+
+
+
+print(changes)
+```
+```{r}
+comparison_df <- as.data.frame(mapply(pmin, changedf, changes))
+names(comparison_df) <- names(changedf)
+
+for (col in names(changedf)) {
+  comparison_df[[col]] <- ifelse(changedf[[col]] < changes[[col]], "changedf",
+                                 ifelse(changedf[[col]] > changes[[col]], "changes", "tie"))
+}
+
+# Print the resulting dataframe
+print(comparison_df)
+
+comparison_vector <- as.vector(as.matrix(comparison_df))
+
+# Count the occurrences of each category
+count_table <- table(comparison_vector)
+
+# Print the counts
+print(count_table)
+```
+

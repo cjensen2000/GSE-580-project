@@ -8,7 +8,7 @@
 |   |----Tool_functions.py			# Holds all functions used in the tool
 |   |----var_script.py				# Script to analyze variance in probability predictions
 |----India Data
-|   |----correspondence_table.Rmd		### 
+|   |----Correspondence_Table_Official.Rmd		### 
 |   |----India_Data_2009_.Rmd			India data to test the effectiveness of the model predictions. Data is from 2009 and 2011
 |   |----India_Data_2011_.Rmd			In 2009 ISICS 3.1 was used, in 2011 4.0 was used, we can test back predictions by comparing the predicted
 |   |----ISIC_Codes_.txt			values of 2011 to the truth of 2009 under the assumption to 2009 and 2011 economies of India were similar
@@ -71,5 +71,4 @@ marital			int			variable that takes the value 1 if an individual is married, 2 i
 vocational		bool (0,1)		binary variable that takes the value 1 if an individual has received vocational training, and 0 otherwise. 
 lstatus			int			variable that takes the value 1 if employed, 2 if unemployed, and 3 if not in the labor force. We made a new variable that’s 1 if employed, 0 otherwise. 
 subnatid_1		character		variable that has the name of the state or territory the individual is from.
-wage_no_compen		int			The wage an individual was last paid 
-whours			int			The number of hours worked by an individual in the last week
+
