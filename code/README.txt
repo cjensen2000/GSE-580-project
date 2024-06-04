@@ -72,4 +72,4 @@ vocational		bool (0,1)		binary variable that takes the value 1 if an individual 
 lstatus			int			variable that takes the value 1 if employed, 2 if unemployed, and 3 if not in the labor force. We made a new variable that’s 1 if employed, 0 otherwise. 
 subnatid_1		character		variable that has the name of the state or territory the individual is from.
 wage_no_compen		int			The wage an individual was last paid 
-whours			int			The number of hours worked by an individual in the last wee
+whours			int			The number of hours worked by an individual in the last week
