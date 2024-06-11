@@ -567,7 +567,7 @@ ggplot(merged_categories3) +
 Below takes the squared differences between the 2009 codes and the backcoded 2011 codes. 
 ```{r}
 
-changefreq <- (summed_freqs$Freq - summed_freqs3$Freq)**2
+changefreq <- abs((summed_freqs$Freq - summed_freqs3$Freq))
 
 changedf <- as.data.frame(summed_freqs$Category)
 
@@ -579,9 +579,9 @@ changedf$males <- (summed_freqs$males - summed_freqs3$males)**2
 
 changedf$literacy <- (summed_freqs$literacy - summed_freqs3$literacy)**2
 
-changedf$avg_age <- (summed_freqs$avg_age - summed_freqs3$avg_age)**2
+changedf$avg_age <- abs((summed_freqs$avg_age - summed_freqs3$avg_age))
 
-changedf$h_size <- (summed_freqs$avg_hsize - summed_freqs3$avg_hsize)**2
+changedf$h_size <- abs((summed_freqs$avg_hsize - summed_freqs3$avg_hsize))
 
 changedf$school <- (summed_freqs$school - summed_freqs3$school)**2
 
@@ -591,9 +591,9 @@ changedf$labor <- (summed_freqs$labor - summed_freqs3$marital)**2
 
 changedf$vocation <- (summed_freqs$vocation - summed_freqs3$vocation)**2
 
-changedf$wage <- (summed_freqs$avg_wages - summed_freqs3$avg_wages)**2
+changedf$wage <- abs((summed_freqs$avg_wages - summed_freqs3$avg_wages))
 
-changedf$hours <- (summed_freqs$avg_hours - summed_freqs3$avg_hours)**2
+changedf$hours <- abs((summed_freqs$avg_hours - summed_freqs3$avg_hours))
 
 
 print(changedf)
@@ -1228,12 +1228,24 @@ ggplot(data = merged_data) +
 ```
 
 ```{r}
-dominant_category4 <- data_filtered2 %>%
+dominant_category4spec <- data_filtered2 %>%
   group_by(subnatid1, categs) %>%
   tally() %>%
   group_by(subnatid1) %>%
-  filter(n == max(n)) %>%
+  mutate(rank = dense_rank(desc(n))) %>%  # Add rank for each category within subnatid1
+  filter(rank == 1 & categs != "Agriculture, hunting and forestry" |  # Filter dominant category (excluding Agriculture)
+         rank == 2) %>%                                         # OR keep the second largest category if dominant is Agriculture
   select(subnatid1, categs)
+
+print(dominant_category4)
+
+
+dominant_category4 <- data_filtered2 %>%
+   group_by(subnatid1, categs) %>%
+   tally() %>%
+   group_by(subnatid1) %>%
+   filter(n == max(n)) %>%
+   select(subnatid1, categs)
 
 
 
@@ -1260,18 +1272,32 @@ mutate_category4 <- dominant_category4 %>%
 
 merged_categories4 <- merge(india_shapefile, mutate_category4, by = "State_Name",all.x=TRUE)
 
+cols_to_replace <- 2:4
+
+merged_categories4[33, cols_to_replace] <- merged_categories4[2, cols_to_replace]
+
+merged_categories4[18, cols_to_replace] <- merged_categories4[14, cols_to_replace]
+
 # Plot the merged data
-ggplot(merged_categories4) +
+p <- ggplot(merged_categories4) +
   geom_sf(aes(fill = categs)) +
   scale_fill_viridis_d(option = "plasma", name = "Dominant Category") +
   theme_minimal() +
   labs(title = "Dominant Job Category by State in India",
-       subtitle = "Based on backcoded ISIC 4 to ISIC 3.1 job code data using our tool") 
+       subtitle = "Based on backcoded ISIC 4 to ISIC 3.1 job code data using our tool")
+
+p <- p + theme(plot.background = element_rect(fill = "white"))
+
+
+# Save the plot as a PNG image (modify filename and dimensions as needed)
+ggsave(filename = "dominant_categories_india.png", plot = p, width = 10, height = 8)
+
+print(p)
 ```
 
 ```{r}
 
-change <- (summed_freqs$Freq - summed_freqs4$Freq)**2
+change <- abs((summed_freqs$Freq - summed_freqs4$Freq))
 
 changes <- as.data.frame(summed_freqs$Category)
 
@@ -1283,9 +1309,9 @@ changes$males <- (summed_freqs$males - summed_freqs4$males)**2
 
 changes$literacy <- (summed_freqs$literacy - summed_freqs4$literacy)**2
 
-changes$avg_age <- (summed_freqs$avg_age - summed_freqs4$avg_age)**2
+changes$avg_age <- abs((summed_freqs$avg_age - summed_freqs4$avg_age))
 
-changes$h_size <- (summed_freqs$avg_hsize - summed_freqs4$avg_hsize)**2
+changes$h_size <- abs((summed_freqs$avg_hsize - summed_freqs4$avg_hsize))
 
 changes$school <- (summed_freqs$school - summed_freqs4$school)**2
 
@@ -1295,9 +1321,9 @@ changes$labor <- (summed_freqs$labor - summed_freqs4$marital)**2
 
 changes$vocation <- (summed_freqs$vocation - summed_freqs4$vocation)**2
 
-changes$wage <- (summed_freqs$avg_wages - summed_freqs4$avg_wages)**2
+changes$wage <- abs((summed_freqs$avg_wages - summed_freqs4$avg_wages))
 
-changes$hours <- (summed_freqs$avg_hours - summed_freqs4$avg_hours)**2
+changes$hours <- abs((summed_freqs$avg_hours - summed_freqs4$avg_hours))
 
 
 
@@ -1308,8 +1334,8 @@ comparison_df <- as.data.frame(mapply(pmin, changedf, changes))
 names(comparison_df) <- names(changedf)
 
 for (col in names(changedf)) {
-  comparison_df[[col]] <- ifelse(changedf[[col]] < changes[[col]], "changedf",
-                                 ifelse(changedf[[col]] > changes[[col]], "changes", "tie"))
+  comparison_df[[col]] <- ifelse(changedf[[col]] < changes[[col]], "blunt",
+                                 ifelse(changedf[[col]] > changes[[col]], "AI Tool", "tie"))
 }
 
 # Print the resulting dataframe
@@ -1323,4 +1349,84 @@ count_table <- table(comparison_vector)
 # Print the counts
 print(count_table)
 ```
+
+
+```{r}
+# install.packages("knitr")
+# install.packages("kableExtra")
+# install.packages("webshot")
+# webshot::install_phantomjs()
+
+library(kableExtra)
+library(webshot)
+```
+
+
+```{r}
+# Select numeric columns (excluding the first one)
+numeric_cols <- names(summed_freqs)[2:ncol(summed_freqs)]
+
+# Round the numeric columns
+rounded_numeric_data <- round(summed_freqs[numeric_cols], 2)
+
+# Combine rounded numeric data with original first column
+rounded_data <- cbind(summed_freqs[, 1], rounded_numeric_data)
+
+# Update the summed_freqs data frame with the rounded version
+summed_freqs <- rounded_data
+
+colnames(summed_freqs)[1] <- "Category"
+
+kable_output <- kable(summed_freqs, format = "html") %>%
+  kable_styling(bootstrap_options = c("striped", "hover", "condensed", "responsive"),
+                full_width = F, position = "center")
+
+# Save the table as HTML
+temp_file <- tempfile(fileext = ".html")
+save_kable(kable_output, file = temp_file)
+
+# Convert the HTML to PNG
+webshot(temp_file, file = "table.png", selector = "table")
+
+
+
+```
+
+
+
+```{r}
+# Select numeric columns (excluding the first one)
+numeric_cols <- names(summed_freqs2)[2:ncol(summed_freqs2)]
+
+# Round the numeric columns
+rounded_numeric_data2 <- round(summed_freqs2[numeric_cols], 2)
+
+# Combine rounded numeric data with original first column
+rounded_data2 <- cbind(summed_freqs2[, 1], rounded_numeric_data2)
+
+# Update the summed_freqs data frame with the rounded version
+summed_freqs2 <- rounded_data2
+```
+
+```{r}
+# Select numeric columns (excluding the first one)
+numeric_cols <- names(summed_freqs4)[2:ncol(summed_freqs4)]
+
+# Round the numeric columns
+rounded_numeric_data <- round(summed_freqs4[numeric_cols], 2)
+
+# Combine rounded numeric data with original first column
+rounded_data <- cbind(summed_freqs4[, 1], rounded_numeric_data)
+
+# Update the summed_freqs data frame with the rounded version
+summed_freqs4 <- rounded_data
+
+colnames(summed_freqs4)[1] <- "Category"
+```
+
+```{r}
+summed_freqs4 <- summed_freqs4 %>% select(-proportion)
+print(summed_freqs4)
+```
+
 
