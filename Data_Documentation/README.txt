@@ -16,6 +16,9 @@
 |   |----ISIC_4_4digit.xlsx			# Holds all 4 digit codes and descriptions for v.4
 |   |----ISIC_31_4digit.xlsx			# Holds all 4 digit codes and descriptions for v.3.1
 |   |----ISIC4_ISIC31.csv			# Correspondence between v.4 and v.3.1 including details
+|   |---- India_State_Boundary.dbf              # Files that contain info to make maps of India. 
+|   |---- India_State_Boundary.shx              # From https://github.com/AnujTiwari/India-State-and-Country-Shapefile-Updated-Jan-2020
+|   |---- India_State_Boundary.shp
 |----literature
 |----meetings
 |----output	
@@ -25,6 +28,7 @@
 	- ISIC_4_4digit (all 4 digit ISICS version 4 codes)
 	- ISIC_31_4digit (all 4 digit ISICS version 3.1 codes)
 	- ISIC4_ISIC31 (correspondence table of ISICS v.4 to ISICS v.3.1
+        - India_State_Boundary.dbf, .shx, .shp (shape files for India)
 -All code files may be found in code, they include
 	- Tool_functions.py (the basic functions that make up the tool) 
 	- main_script.py (the script where the functions are used to create a correspondence table 
