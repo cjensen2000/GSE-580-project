@@ -19,6 +19,7 @@
 |   |---- India_State_Boundary.dbf              # Files that contain info to make maps of India. 
 |   |---- India_State_Boundary.shx              # From https://github.com/AnujTiwari/India-State-and-Country-Shapefile-Updated-Jan-2020
 |   |---- India_State_Boundary.shp
+|   |---- ISIC_words.txt                        # basic correspondence table to work off of
 |----literature
 |----meetings
 |----output	
@@ -56,6 +57,14 @@ $ python var_script.py correspondence_table ISIC_old ISIC_new mod**** outfile_xl
 
 4) this will return 2 files, an excel file showing each code pairing***** and its variance and an image of a histogram of these code pairings and variances for visual understanding 
 5) Be warned, this requires overnight running normally of between 8-10 hours as the model must run 100 times
+
+For India Data:
+1) Download the Zip files (IND_2009_EUS_V01_M_V06_A_GLD_ALL and IND_2011_EUS_V01_M_V06_A_GLD_ALL)
+2) Download the shapes files for map creation
+3) Download ISIC_words.txt
+4) Run Data_India_2009.rmd and Data_India_2011.rmd before Corp_Table.rmd
+5) Need packages haven, stringr, ggplot2, sf, stringdist
+6) Hit run on each code chunk 
 
 ***Other necessary packages are pandas, numpy, and io 
 ****Must specify desired model, options are 'gemini-pro', 'gemini-pro-1.0' and 'gemini-pro-1.0-latest'
