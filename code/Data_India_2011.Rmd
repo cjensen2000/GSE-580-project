@@ -1,0 +1,265 @@
+---
+title: "India Data 2011"
+author: "Matthew"
+date: "2024-04-19"
+output: html_document
+---
+
+```{r}
+data2 <- read_dta("/Users/homedepotsoup/Desktop/Econo2/IND_2011_EUS_V01_M_V06_A_GLD_ALL.dta")
+```
+
+Counts how many of each code there is, makes a table
+```{r}
+counts2 <- table(data2$industrycat_isic_year)
+
+count_df2 <- as.data.frame(counts2)
+colnames(count_df2)[1] <- "ISIC"
+summary(count_df2$Freq)
+```
+
+Uses ISIC 4, so the categorization is different. Process is the same. 
+```{r}
+categorize_code2 <- function(code) {
+  if(is.na(code) || code == "") {
+    return("Unemployed")
+  }
+  
+  first_two_digits <- as.numeric(substr(code, 1, 2))
+  
+  if(first_two_digits >= 1 && first_two_digits <= 3) {
+    return("Agriculture, forestry, and fishing")
+  } else if(first_two_digits >= 5 && first_two_digits <= 9) {
+    return("Mining and Quarrying")
+  } else if(first_two_digits >= 10 && first_two_digits <= 33) {
+    return("Manufacturing")
+  } else if(first_two_digits == 35) {
+    return("Electricity, gas, steam and air conditioning supply")
+  } else if(first_two_digits >= 36 && first_two_digits <= 39) {
+    return("Water supply; sewerage, waste management and remediation activities")
+  } else if(first_two_digits >= 41 && first_two_digits <= 43) {
+    return("Construction")
+  } else if(first_two_digits >= 45 && first_two_digits <= 47) {
+    return("Wholesale and retail trade; repair of motor vehicles and motorcycles")
+  } else if(first_two_digits >= 49 && first_two_digits <= 53) {
+    return("Transportation and storage")
+  } else if(first_two_digits >= 55 && first_two_digits <= 56) {
+    return("Accommodation and food service activities")
+  } else if(first_two_digits >= 58 && first_two_digits <= 63) {
+    return("Information and communication")
+  } else if(first_two_digits >= 64 && first_two_digits <= 66) {
+    return("Financial and insurance activities")
+  } else if(first_two_digits == 68) {
+    return("Real estate activities")
+  } else if(first_two_digits >= 69 && first_two_digits <= 75) {
+    return("Professional, scientific, and technical activities")
+  } else if(first_two_digits >= 77 && first_two_digits <= 82) {
+    return("Administrative and support service activities")
+  } else if(first_two_digits == 84) {
+    return("Public administration and defence; compulsory social security")
+  } else if(first_two_digits == 85) {
+    return("Education")
+  } else if(first_two_digits >= 86 && first_two_digits <= 88) {
+    return("Human health and social work activities")
+  } else if(first_two_digits >= 90 && first_two_digits <= 93) {
+    return("Arts, entertainment and recreation")
+  } else if(first_two_digits >= 94 && first_two_digits <= 96) {
+    return("Other service activities")
+  } else if(first_two_digits >= 97 && first_two_digits <= 98) {
+    return("Activities of households as employers; undifferentiated goods- and services-producing activities of households for own use")
+  } else if(first_two_digits == 99) {
+    return("Activities of extraterritorial organizations and bodies")
+  } else {
+    return("Unemployed")
+  }
+}
+
+count_df2$ISIC <- as.character(count_df2$ISIC)
+
+count_df2$Category <- sapply(count_df2$ISIC, categorize_code2)
+
+category_counts2 <- table(count_df2$Category)
+category_counts_df2 <- as.data.frame(category_counts2)
+names(category_counts_df2) <- c("Category", "Count")
+
+
+category_counts_df2$Category <- as.factor(category_counts_df2$Category)
+
+summed_freqs2 <- aggregate(Freq ~ Category, data = count_df2, FUN = sum)
+
+
+print(summed_freqs2)
+
+```
+
+Location is urban if 1 and rural is 0
+```{r}
+data2$Category <- sapply(as.character(data2$industrycat_isic_year), categorize_code2)
+
+count_df2 <- data.frame(ISIC = data2$industrycat_isic_year, Urban = data2$urban, Category = data2$Category)
+
+Urban_in_category2 <- aggregate(Urban ~ Category, data = count_df2, FUN = sum)
+
+print(Urban_in_category2)
+
+calculate_proportion <- function(x) {
+  sum(x) / length(x)
+}
+
+Urban_proportion_in_category2 <- aggregate(Urban ~ Category, data = count_df2, FUN = calculate_proportion)
+
+summed_freqs2$urban <- Urban_proportion_in_category2$Urban
+
+
+
+print(Urban_proportion_in_category2)
+
+```
+
+Calculate the number of males
+```{r}
+data2$Category <- sapply(as.character(data2$industrycat_isic_year), categorize_code2)
+
+count_df2 <- data.frame(ISIC = data2$industrycat_isic_year, Male = data2$male, Category = data2$Category)
+
+males_in_category2 <- aggregate(Male ~ Category, data = count_df2, FUN = sum)
+
+print(males_in_category2)
+
+calculate_proportion <- function(x) {
+  sum(x) / length(x)
+}
+
+Male_proportion_in_category2 <- aggregate(Male ~ Category, data = count_df2, FUN = calculate_proportion)
+
+summed_freqs2$males <- Male_proportion_in_category2$Male
+
+
+print(Male_proportion_in_category2)
+```
+
+Literacy where 1 can read and write and 0 is cannot 
+
+```{r}
+data2$Category <- sapply(as.character(data2$industrycat_isic_year), categorize_code2)
+
+count_df2 <- data.frame(ISIC = data2$industrycat_isic_year, Literacy = data2$literacy, Category = data2$Category)
+
+Literacy_in_category2 <- aggregate(Literacy ~ Category, data = count_df2, FUN = sum)
+
+print(Literacy_in_category2)
+
+calculate_proportion <- function(x) {
+  sum(x) / length(x)
+}
+
+Literacy_proportion_in_category2 <- aggregate(Literacy ~ Category, data = count_df2, FUN = calculate_proportion)
+
+summed_freqs2$literacy <- Literacy_proportion_in_category2$Literacy
+
+
+print(Literacy_proportion_in_category2)
+```
+
+Calculate the average age
+```{r}
+data2$Category <- sapply(as.character(data2$industrycat_isic_year), categorize_code2)
+
+age_df2 <- data.frame(ISIC = data2$industrycat_isic_year, Age = data2$age, Category = data2$Category)
+
+average_age_in_category2 <- aggregate(Age ~ Category, data = age_df2, FUN = mean, na.rm = TRUE)
+
+summed_freqs2$avg_age <- average_age_in_category2$Age
+
+
+print(average_age_in_category2)
+
+```
+
+Calculate average household size
+```{r}
+data2$Category <- sapply(as.character(data2$industrycat_isic_year), categorize_code2)
+
+hsize_df2 <- data.frame(ISIC = data2$industrycat_isic_year, HSize = data2$hsize, Category = data2$Category)
+
+average_hsize_in_category2 <- aggregate(HSize ~ Category, data = hsize_df2, FUN = mean, na.rm = TRUE)
+
+summed_freqs2$avg_hsize <- average_hsize_in_category2$HSize
+
+
+print(average_hsize_in_category2)
+```
+
+School 1 is attended and 0 it not
+```{r}
+data2$Category <- sapply(as.character(data2$industrycat_isic_year), categorize_code2)
+
+count_df2 <- data.frame(ISIC = data2$industrycat_isic_year, School = data2$school, Category = data2$Category)
+
+School_in_category2 <- aggregate(School ~ Category, data = count_df2, FUN = sum)
+
+print(School_in_category2)
+
+calculate_proportion <- function(x) {
+  sum(x) / length(x)
+}
+
+School_proportion_in_category2 <- aggregate(School ~ Category, data = count_df2, FUN = calculate_proportion)
+
+summed_freqs2$school <- School_proportion_in_category2$School
+
+print(School_proportion_in_category2)
+```
+Marital Status
+```{r}
+# Check labels for what the values of marital mean.
+unique(data2$marital)
+```
+
+```{r}
+marital_counts <- data2 %>%
+  group_by(Category, marital) %>%
+  summarise(count = n(), .groups = 'drop')
+print(marital_counts)
+
+marital_summary <- marital_counts %>%
+  group_by(Category) %>%
+  summarise(marital_vector = list(setNames(count, marital)), .groups = 'drop')
+
+summed_freqs2 <- summed_freqs2 %>%
+  left_join(marital_summary, by = "Category")
+```
+labor status
+```{r}
+# check label for what the values of lstatus mean
+unique(data2$lstatus)
+```
+
+```{r}
+labor_counts <- data2 %>%
+  group_by(Category, lstatus) %>%
+  summarise(count = n(), .groups = 'drop')
+print(marital_counts)
+
+labor_summary <- labor_counts %>%
+  group_by(Category) %>%
+  summarise(labor_vector = list(setNames(count, lstatus)), .groups = 'drop')
+
+summed_freqs2 <- summed_freqs2 %>%
+  left_join(labor_summary, by = "Category")
+```
+
+Vocational status
+```{r}
+count_df2 <- data.frame(ISIC = data2$industrycat_isic_year, vocation = data2$vocational, Category = data2$Category)
+
+vocation_in_category2 <- aggregate(vocation ~ Category, data = count_df2, FUN = sum)
+
+vocation_proportion_in_category2 <- aggregate(vocation ~ Category, data = count_df2, FUN = calculate_proportion)
+
+summed_freqs2$vocation <- vocation_proportion_in_category2$vocation
+
+
+print(vocation_proportion_in_category2)
+```
+
