@@ -1,0 +1,477 @@
+---
+title: "World_Bank"
+output: html_document
+date: "2024-04-04"
+---
+
+
+For the 2009 data
+```{r}
+library(haven)
+data <- read_dta("IND_2009_EUS_V01_M_V06_A_GLD_ALL.dta")
+```
+
+The code below counts how many of each code there are and creates a dataframe.
+```{r}
+counts <- table(data$industrycat_isic_year)
+
+count_df <- as.data.frame(counts)
+colnames(count_df)[1] <- "ISIC"
+# min, median, max, and quartiles of frequencies of job codes appearing
+summary(count_df$Freq)
+```
+
+Below is a function that groups job codes into their corresponding ISIC 3.1 division, i.e codes that start with 01 or 02 are in the agriculture, hunting, and forestry division. Then it creates a table that sums the frequencies of each category appearing. 
+```{r}
+categorize_code <- function(code) {
+  if(is.na(code) || code == "") {
+    return("Unemployed")
+  }
+  
+  first_two_digits <- as.numeric(substr(code, 1, 2))
+  
+  # Categorization logic based on the first two digits
+  if(first_two_digits == 1 || first_two_digits == 2) {
+    return("Agriculture, hunting and forestry")
+  } else if(first_two_digits == 5) {
+    return("Fishing")
+  } else if(first_two_digits >= 10 && first_two_digits <= 14) {
+    return("Mining and quarrying")
+  } else if(first_two_digits >= 15 && first_two_digits <= 37) {
+    return("Manufacturing")
+  } else if(first_two_digits == 40 || first_two_digits == 41) {
+    return("Electricity, gas and water supply")
+  } else if(first_two_digits == 45) {
+    return("Construction")
+  } else if(first_two_digits >= 50 && first_two_digits <= 52) {
+    return("Wholesale and retail trade")
+  } else if(first_two_digits == 55) {
+    return("Hotels and restaurants")
+  } else if(first_two_digits >= 60 && first_two_digits <= 64) {
+    return("Transport, storage and communications")
+  } else if(first_two_digits >= 65 && first_two_digits <= 67) {
+    return("Financial intermediation")
+  } else if(first_two_digits >= 70 && first_two_digits <= 74) {
+    return("Real estate, renting and business activities")
+  } else if(first_two_digits == 75) {
+    return("Public administration and defence")
+  } else if(first_two_digits == 80) {
+    return("Education")
+  } else if(first_two_digits == 85) {
+    return("Health and social work")
+  } else if(first_two_digits >= 90 && first_two_digits <= 93) {
+    return("Other community, social and personal service activities")
+  } else if(first_two_digits >= 95 && first_two_digits <= 97) {
+    return("Activities of private households")
+  } else if(first_two_digits == 99) {
+    return("Extraterritorial organizations and bodies")
+  } else {
+    return("Unemployed")
+  }
+}
+
+count_df$ISIC <- as.character(count_df$ISIC)
+
+count_df$Category <- sapply(count_df$ISIC, categorize_code)
+
+category_counts <- table(count_df$Category)
+category_counts_df <- as.data.frame(category_counts)
+names(category_counts_df) <- c("Category", "Count")
+
+
+category_counts_df$Category <- as.factor(category_counts_df$Category)
+
+# Use the aggregate function to sum frequencies for each category
+summed_freqs <- aggregate(Freq ~ Category, data = count_df, FUN = sum)
+
+print(summed_freqs)
+
+```
+
+Location is urban if 1 and rural is 0
+```{r}
+data$Category <- sapply(as.character(data$industrycat_isic_year), categorize_code)
+
+count_df <- data.frame(ISIC = data$industrycat_isic_year, Urban = data$urban, Category = data$Category)
+
+Urban_in_category <- aggregate(Urban ~ Category, data = count_df, FUN = sum)
+
+print(Urban_in_category)
+
+calculate_proportion <- function(x) {
+  sum(x) / length(x)
+}
+
+Urban_proportion_in_category <- aggregate(Urban ~ Category, data = count_df, FUN = calculate_proportion)
+
+summed_freqs$urban <- Urban_proportion_in_category$Urban
+
+print(Urban_proportion_in_category)
+
+```
+
+Calculate the number of males
+```{r}
+data$Category <- sapply(as.character(data$industrycat_isic_year), categorize_code)
+
+count_df <- data.frame(ISIC = data$industrycat_isic_year, Male = data$male, Category = data$Category)
+
+males_in_category <- aggregate(Male ~ Category, data = count_df, FUN = sum)
+
+print(males_in_category)
+
+calculate_proportion <- function(x) {
+  sum(x) / length(x)
+}
+
+Male_proportion_in_category <- aggregate(Male ~ Category, data = count_df, FUN = calculate_proportion)
+
+summed_freqs$males <- Male_proportion_in_category$Male
+
+print(Male_proportion_in_category)
+
+```
+
+Literacy where 1 is can read and write and 0 is cannot 
+
+```{r}
+data$Category <- sapply(as.character(data$industrycat_isic_year), categorize_code)
+
+count_df <- data.frame(ISIC = data$industrycat_isic_year, Literacy = data$literacy, Category = data$Category)
+
+Literacy_in_category <- aggregate(Literacy ~ Category, data = count_df, FUN = sum)
+
+print(Literacy_in_category)
+
+calculate_proportion <- function(x) {
+  sum(x) / length(x)
+}
+
+Literacy_proportion_in_category <- aggregate(Literacy ~ Category, data = count_df, FUN = calculate_proportion)
+
+summed_freqs$literacy <- Literacy_proportion_in_category$Literacy
+
+print(Literacy_proportion_in_category)
+```
+
+Calculate the average age
+```{r}
+data$Category <- sapply(as.character(data$industrycat_isic_year), categorize_code)
+
+age_df <- data.frame(ISIC = data$industrycat_isic_year, Age = data$age, Category = data$Category)
+
+average_age_in_category <- aggregate(Age ~ Category, data = age_df, FUN = mean, na.rm = TRUE)
+
+summed_freqs$avg_age <- average_age_in_category$Age
+
+print(average_age_in_category)
+
+```
+
+Get the average household size
+```{r}
+data$Category <- sapply(as.character(data$industrycat_isic_year), categorize_code)
+
+hsize_df <- data.frame(ISIC = data$industrycat_isic_year, HSize = data$hsize, Category = data$Category)
+
+average_hsize_in_category <- aggregate(HSize ~ Category, data = hsize_df, FUN = mean, na.rm = TRUE)
+
+summed_freqs$avg_hsize <- average_hsize_in_category$HSize
+
+print(average_hsize_in_category)
+
+```
+
+School 1 is attended and 0 it not
+```{r}
+data$Category <- sapply(as.character(data$industrycat_isic_year), categorize_code)
+
+count_df <- data.frame(ISIC = data$industrycat_isic_year, School = data$school, Category = data$Category)
+
+School_in_category <- aggregate(School ~ Category, data = count_df, FUN = sum)
+
+print(School_in_category)
+
+calculate_proportion <- function(x) {
+  sum(x) / length(x)
+}
+
+School_proportion_in_category <- aggregate(School ~ Category, data = count_df, FUN = calculate_proportion)
+
+newrow <- data.frame(Category = "Extraterritorial organizations and bodies", School=NA)
+r <- 5
+School_proportion_in_category <- rbind(School_proportion_in_category[1:r, ], newrow, School_proportion_in_category[-(1:r),])
+
+print(School_proportion_in_category)
+
+
+summed_freqs$school <- School_proportion_in_category$School
+
+print(School_proportion_in_category)
+
+```
+
+
+
+
+
+Marital Status
+```{r}
+# Check labels for what the values of marital mean.
+unique(data$marital)
+
+
+# makes a variable that takes the value 1 if a person is married and 0 otherwise, to simplify the statistics
+data <- as.data.frame(data, stringsAsFactors = FALSE)
+
+data$marital2 <- ifelse(is.na(data$marital), NA, 
+                         ifelse(data$marital == 1, 1, 0))
+```
+
+
+```{r}
+count_df <- data.frame(ISIC = data$industrycat_isic_year, Marital = data$marital2, Category = data$Category)
+
+marital_in_category <- aggregate(Marital ~ Category, data = count_df, FUN = sum)
+
+print(marital_in_category)
+
+calculate_proportion <- function(x) {
+  sum(x) / length(x)
+}
+
+Marital_proportion_in_category <- aggregate(Marital ~ Category, data = count_df, FUN = calculate_proportion)
+
+summed_freqs$marital <- Marital_proportion_in_category$Marital
+
+print(Marital_proportion_in_category)
+```
+
+
+labor status
+```{r}
+# check label for what the values of lstatus mean
+unique(data$lstatus)
+
+# makes a ne variable that takes the value 1 if an individual is employed and 0 otherwise, to simplify calculations.
+data$labor <- ifelse(is.na(data$lstatus), NA, 
+                         ifelse(data$lstatus == 1, 1, 0))
+```
+
+
+
+
+
+```{r}
+count_df <- data.frame(ISIC = data$industrycat_isic_year, labor = data$labor, Category = data$Category)
+
+labor_in_category <- aggregate(labor ~ Category, data = count_df, FUN = sum)
+
+print(labor_in_category)
+
+calculate_proportion <- function(x) {
+  sum(x) / length(x)
+}
+
+labor_proportion_in_category <- aggregate(labor ~ Category, data = count_df, FUN = calculate_proportion)
+
+summed_freqs$labor <- labor_proportion_in_category$labor
+
+print(labor_proportion_in_category)
+```
+
+
+Vocational status
+```{r}
+count_df <- data.frame(ISIC = data$industrycat_isic_year, vocation = data$vocational, Category = data$Category)
+
+vocation_in_category <- aggregate(vocation ~ Category, data = count_df, FUN = sum)
+
+vocation_proportion_in_category <- aggregate(vocation ~ Category, data = count_df, FUN = calculate_proportion)
+
+summed_freqs$vocation <- vocation_proportion_in_category$vocation
+
+
+print(vocation_proportion_in_category)
+```
+
+
+Average wages
+```{r}
+count_df <- data.frame(ISIC = data$industrycat_isic_year, wages = data$wage_no_compen, Category = data$Category)
+
+wages_in_category <- aggregate(wages ~ Category, data = count_df, FUN = sum)
+
+wages_proportion_in_category <- aggregate(wages ~ Category, data = count_df, FUN = mean, na.rm = TRUE)
+
+summed_freqs$avg_wages <- wages_proportion_in_category$wages
+
+
+print(wages_proportion_in_category)
+```
+
+Average hours worked
+```{r}
+count_df <- data.frame(ISIC = data$industrycat_isic_year, hours = data$whours, Category = data$Category)
+
+hours_in_category <- aggregate(hours ~ Category, data = count_df, FUN = sum)
+
+hours_proportion_in_category <- aggregate(hours ~ Category, data = count_df, FUN = mean, na.rm = TRUE)
+
+summed_freqs$avg_hours <- hours_proportion_in_category$hours
+
+
+print(hours_proportion_in_category)
+```
+
+
+
+
+```{r}
+
+data_filtered <- data %>%
+  filter(!is.na(industrycat_isic_year) & industrycat_isic_year != "")
+
+
+names_to_drop <- c(
+  "35  - Andaman & Nicobar Islands",
+  "4 - Chandigarh",
+  "26 - Dadra & Nagar Haveli",
+  "7 - Delhi",
+  "1 - Jammu & Kashmir",
+  "31 - Lakshadweep",
+  "34 - Pondicheri"
+)
+
+
+frequency_table <- table(data_filtered$subnatid1)
+
+sorted_frequencies <- sort(frequency_table)
+
+
+for (name in names(sorted_frequencies)) {  # Iterate over unique names
+  count <- frequency_table[name]  # Get the count for each unique name
+  print(paste("Number of", name, ":", count))  # Print the name and its count
+}
+
+territories <- as.data.frame(frequency_table)
+
+```
+
+
+To replicate this, download the india_state_boundary .shp, .dbf, and .shx files from https://github.com/AnujTiwari/India-State-and-Country-Shapefile-Updated-Jan-2020
+```{r}
+library(stringr)
+
+library(ggplot2)
+library(sf)
+library(stringdist)
+
+
+india_shapefile <- st_read("India_State_Boundary.shp")
+
+# Clean the state names in your data
+territories$subnatid1_clean <- gsub("^[0-9]+ - ", "", territories$Var1)
+
+
+
+# Ensure consistent naming conventions for merging
+india_shapefile$State_Name <- tolower(trimws(india_shapefile$State_Name))
+territories$subnatid1_clean <- tolower(trimws(territories$subnatid1_clean))
+
+correction_map <- list(
+  "orissa" = "odisha",
+  "chhattisgarh" = "chhattishgarh",
+  "gujrat" = "gujarat",
+  "maharastra" = "maharashtra",
+  "tamil nadu" = "tamilnadu",
+  "pondicheri" = "puducherry",
+  "andaman & nicober" = "andaman & nicobar",
+  "uttaranchal" = "uttarakhand",
+  "jammu & kashmir" = "jammu and kashmir"
+)
+
+mutation <- territories %>%
+  mutate(State_Name = sapply(subnatid1_clean, function(x) {
+    if (x %in% names(correction_map)) {
+      return(correction_map[[x]])
+    } else {
+      return(x)  # If not in the map, keep the original name
+    }
+  }))
+daman_and_dadra_sum <- mutation %>%
+  filter(State_Name %in% c("daman & diu", "dadra & nagar haveli")) %>%
+  summarise(
+    State_Name = "daman and diu and dadra and nagar haveli",
+    Freq = sum(Freq)  # Summing the frequencies
+  )
+
+# Append the new row to the original data frame
+mutation <- bind_rows(mutation, daman_and_dadra_sum) 
+```
+
+Of some note, Ladakh was part of Jammu and Kashmir until 2019 when it became a separate territory, so the data from Jammu and Kashmir is spread among Ladakh as well. 
+Similarly, Telengana didn't become a state until 2014. Until that time, it had been a part of Andhra Pradesh
+```{r}
+merged_data <- merge(india_shapefile, mutation, by = "State_Name",all.x=TRUE)
+
+# Plot the merged data
+ggplot(data = merged_data) +
+  geom_sf(aes(fill = Freq), color = "black", lwd = 0.5) +  # use lwd to adjust line width
+  geom_sf_text(aes(label = State_Name), color="red", size = 3, check_overlap = TRUE) +  # Add state name labels
+  theme_minimal() +
+  labs(
+    title = "Map of India with number of observations in each state or union territory",
+    fill = "number of observations"
+  )
+# Unfortunately, sizing the labels as they are mean some of them have been cut off and cannot be seen. You can adjust the size of the label, but break out the reading glasses if you do. 
+```
+
+```{r}
+dominant_category <- data_filtered %>%
+  group_by(subnatid1, Category) %>%
+  tally() %>%
+  group_by(subnatid1) %>%
+  filter(n == max(n)) %>%
+  select(subnatid1, Category)
+
+
+
+print(dominant_category)
+
+```
+
+```{r}
+dominant_category$subnatid1_clean <- gsub("^[0-9]+ - ", "", dominant_category$subnatid1)
+
+dominant_category$subnatid1_clean <- tolower(trimws(dominant_category$subnatid1_clean))
+
+mutate_category <- dominant_category %>%
+  mutate(State_Name = sapply(subnatid1_clean, function(x) {
+    if (x %in% names(correction_map)) {
+      return(correction_map[[x]])
+    } else {
+      return(x)  
+    }
+  }))
+
+
+
+merged_categories <- merge(india_shapefile, mutate_category, by = "State_Name",all.x=TRUE)
+
+# Plot the merged data
+ggplot(merged_categories) +
+  geom_sf(aes(fill = Category)) +
+  scale_fill_viridis_d(option = "plasma", name = "Dominant Category") +
+  theme_minimal() +
+  labs(title = "Dominant Job Category by State in India",
+       subtitle = "Based on ISIC job code data")
+```
+```{r}
+summed_freqs <- as.data.frame(summed_freqs)
+
+xtable(summed_freqs)
+```
+
+``
+
