@@ -511,25 +511,4 @@ ggplot(df_combined, aes(x = Category, y = Freq, fill = Dataset)) +
   scale_fill_manual(values = c("AI" = "blue", "Blunt" = "red"))
 
 ```
-```{r}
-# Create a new dataframe for differences
-df_2digit_diff <- data.frame(
-  Category = df_2digit_2011$Category,
-  Percentage_2011 = df_2digit_2011$Percentage,
-  Percentage_2009 = df_2digit_2009$Percentage
-)
-
-# Calculate the probability difference at the two digit level
-df_2digit_diff$prob_diff <- df_2digit_diff$Percentage_2011 - df_2digit_diff$Percentage_2009
-
-# Add the Freq_2009 column
-df_2digit_diff$Freq_2009 <- df_2digit_2009$Freq
-
-# Calculate the population weight
-df_2digit_diff$prob_weight <- df_2digit_diff$prob_diff / df_2digit_diff$Percentage_2009
-
-# Print the resulting dataframe
-print(df_2digit_diff)
-
-```
 
