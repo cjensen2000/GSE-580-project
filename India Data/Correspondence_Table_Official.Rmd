@@ -511,6 +511,7 @@ ggplot(df_combined, aes(x = Category, y = Freq, fill = Dataset)) +
   scale_fill_manual(values = c("AI" = "blue", "Blunt" = "red"))
 
 ```
+```{r}
 df_2digit_2011 <- data.frame(
   Category = c("Activities of private households", "Agriculture, hunting and forestry", "Construction", "Education", "Electricity, gas and water supply", "Extraterritorial organizations and bodies", "Financial intermediation", "Fishing", "Health and social work", "Hotels and restaurants", "Manufacturing", "Mining and quarrying", "Other community, social and personal service activities", "Public administration and defence", "Real estate, renting and business activities", "Transport, storage and communications", "Unemployed", "Wholesale and retail trade"),
   Freq = c(1637, 67134, 18827, 8109, 857, 1, 1815, 627, 2127, 3115, 20452, 1221, 4336, 7701, 2420, 9292, 286450, 23663),
