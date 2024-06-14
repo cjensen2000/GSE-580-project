@@ -545,4 +545,4 @@ df_2digit_diff$prob_weight <- df_2digit_diff$prob_diff / df_2digit_diff$Percenta
 
 # Print the resulting dataframe
 print(df_2digit_diff)
-
+```
