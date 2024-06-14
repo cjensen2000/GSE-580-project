@@ -192,7 +192,7 @@ print(average_hsize_in_category2)
 
 School 1 is attended and 0 it not
 ```{r}
-data2$Category <- sapply(as.character(data2$industrycat_isic_year), categorize_code)
+data2$Category <- sapply(as.character(data2$industrycat_isic_year), categorize_code2)
 
 count_df2 <- data.frame(ISIC = data2$industrycat_isic_year, School = data2$school, Category = data2$Category)
 
@@ -206,7 +206,60 @@ calculate_proportion <- function(x) {
 
 School_proportion_in_category2 <- aggregate(School ~ Category, data = count_df2, FUN = calculate_proportion)
 
-summed_freqs$school <- School_proportion_in_category2$School
+summed_freqs2$school <- School_proportion_in_category2$School
 
 print(School_proportion_in_category2)
 ```
+Marital Status
+```{r}
+# Check labels for what the values of marital mean.
+unique(data2$marital)
+```
+
+```{r}
+marital_counts <- data2 %>%
+  group_by(Category, marital) %>%
+  summarise(count = n(), .groups = 'drop')
+print(marital_counts)
+
+marital_summary <- marital_counts %>%
+  group_by(Category) %>%
+  summarise(marital_vector = list(setNames(count, marital)), .groups = 'drop')
+
+summed_freqs2 <- summed_freqs2 %>%
+  left_join(marital_summary, by = "Category")
+```
+labor status
+```{r}
+# check label for what the values of lstatus mean
+unique(data2$lstatus)
+```
+
+```{r}
+labor_counts <- data2 %>%
+  group_by(Category, lstatus) %>%
+  summarise(count = n(), .groups = 'drop')
+print(marital_counts)
+
+labor_summary <- labor_counts %>%
+  group_by(Category) %>%
+  summarise(labor_vector = list(setNames(count, lstatus)), .groups = 'drop')
+
+summed_freqs2 <- summed_freqs2 %>%
+  left_join(labor_summary, by = "Category")
+```
+
+Vocational status
+```{r}
+count_df2 <- data.frame(ISIC = data2$industrycat_isic_year, vocation = data2$vocational, Category = data2$Category)
+
+vocation_in_category2 <- aggregate(vocation ~ Category, data = count_df2, FUN = sum)
+
+vocation_proportion_in_category2 <- aggregate(vocation ~ Category, data = count_df2, FUN = calculate_proportion)
+
+summed_freqs2$vocation <- vocation_proportion_in_category2$vocation
+
+
+print(vocation_proportion_in_category2)
+```
+

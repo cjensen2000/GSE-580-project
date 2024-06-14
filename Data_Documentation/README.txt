@@ -1,4 +1,4 @@
-					README
+									    README
 |GSE-580-Project
 |----code
 |   |----.ipynb_checkpoints
@@ -11,6 +11,7 @@
 |   |----correspondence_table.Rmd		### 
 |   |----India_Data_2009_.Rmd			India data to test the effectiveness of the model predictions. Data is from 2009 and 2011
 |   |----India_Data_2011_.Rmd			In 2009 ISICS 3.1 was used, in 2011 4.0 was used, we can test back predictions by comparing the predicted
+|   |----Corp_Table.Rmd				Use Corp table to get tables describing backcoded 2011 data to look like 2009
 |   |----ISIC_Codes_.txt			values of 2011 to the truth of 2009 under the assumption to 2009 and 2011 economies of India were similar
 |----input					###
 |   |----ISIC_4_4digit.xlsx			# Holds all 4 digit codes and descriptions for v.4

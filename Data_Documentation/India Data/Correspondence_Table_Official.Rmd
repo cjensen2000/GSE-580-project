@@ -349,4 +349,201 @@ print("df_gen_india:")
 print(df_gen_india)
 
 ```
+```{r}
+library(ggplot2)
 
+# Create bins for prob_diff in intervals of 0.10 without double counting
+df12 <- df12 %>%
+  mutate(prob_diff_bin = cut(prob_diff, breaks = seq(-1, 1, by = 0.10), right = FALSE, include.lowest = TRUE))
+
+# Count the occurrences in each bin
+prob_diff_counts <- df12 %>%
+  group_by(prob_diff_bin) %>%
+  summarise(count = n()) %>%
+  arrange(prob_diff_bin)
+
+# Print the counts
+print(prob_diff_counts)
+
+bin_colors <- ifelse(grepl("-", prob_diff_counts$prob_diff_bin), "red", "blue")
+
+# Create a bar chart with different shades for negative and positive values
+#negative is underestimated and positive is overestimated
+ggplot(prob_diff_counts, aes(x = reorder(prob_diff_bin, desc(prob_diff_bin)), y = count)) +
+  geom_bar(stat = "identity", aes(fill = prob_diff_bin)) +
+  geom_text(aes(label = count), hjust = -0.1) + # Add count labels at the end of the bars
+  scale_fill_manual(values = bin_colors) +
+  coord_flip() +
+  theme_minimal() +
+  labs(title = "Count of Probability Differences in Intervals of 0.10",
+       x = "Probability Difference Bins",
+       y = "Count") +
+  theme(axis.text.x = element_text(angle = 0, hjust = 1), legend.position = "none")
+
+```
+```{r}
+# Create the second dataframe (df_2digit_2009)
+df_2digit_2009 <- data.frame(
+  Activity = c("Activities of private households",
+               "Agriculture, hunting and forestry",
+               "Construction",
+               "Education",
+               "Electricity, gas and water supply",
+               "Extraterritorial organizations and bodies",
+               "Financial intermediation",
+               "Fishing",
+               "Health and social work",
+               "Hotels and restaurants",
+               "Manufacturing",
+               "Mining and quarrying",
+               "Other community, social and personal service activities",
+               "Public administration and defence",
+               "Real estate, renting and business activities",
+               "Transport, storage and communications",
+               "Wholesale and retail trade"),
+  Freq = c(1637, 67134, 18827, 8109, 857, 1, 1815, 627, 2127, 3115, 20452, 1221, 4336, 7701, 2420, 9292, 23663)
+)
+
+# Print the second dataframe
+print(df_2digit_2009)
+
+```
+```{r}
+# Create the updated dataframe (df_2digit_2011)
+df_2digit_2011 <- data.frame(
+  Category = c("Activities of private households",
+               "Agriculture, hunting and forestry",
+               "Construction",
+               "Education",
+               "Electricity, gas and water supply",
+               "Extraterritorial organizations and bodies",
+               "Financial intermediation",
+               "Fishing",
+               "Health and social work",
+               "Hotels and restaurants",
+               "Manufacturing",
+               "Mining and quarrying",
+               "Other community, social and personal service activities",
+               "Public administration and defence",
+               "Real estate, renting and business activities",
+               "Transport, storage and communications",
+               "Wholesale and retail trade"),
+  Freq = c(1561, 61573, 20227, 9170, 997, 1, 1943, 499, 2440, 3543, 21735, 972, 5899, 6627, 2988, 8361, 23750)
+)
+
+# Calculate the total frequency
+total_freq_2011 <- sum(df_2digit_2011$Freq)
+
+# Calculate the percentage for each group
+df_2digit_2011 <- df_2digit_2011 %>%
+  mutate(Percentage = (Freq / total_freq_2011) * 100)
+
+# Print the resulting dataframe
+print(df_2digit_2011)
+
+```
+
+```{r}
+# Calculate the total frequency
+total_freq_2009 <- sum(df_2digit_2009$Freq)
+
+# Calculate the percentage for each group
+df_2digit_2009 <- df_2digit_2009 %>%
+  mutate(Percentage = (Freq / total_freq_2009) * 100)
+
+# Print the resulting dataframe
+print(df_2digit_2009)
+
+```
+
+```{r}
+# Create the dataframe df_2digit_blunt
+df_2digit_blunt <- data.frame(
+  Category = c("Activities of private households",
+               "Agriculture, hunting and forestry",
+               "Construction",
+               "Education",
+               "Electricity, gas and water supply",
+               "Extraterritorial organizations and bodies",
+               "Financial intermediation",
+               "Fishing",
+               "Health and social work",
+               "Hotels and restaurants",
+               "Manufacturing",
+               "Mining and quarrying",
+               "Other community, social and personal service activities",
+               "Public administration and defence",
+               "Real estate, renting and business activities",
+               "Transport, storage and communications",
+               "Wholesale and retail trade"),
+  Freq = c(1561, 61581, 20234, 9150, 997, 1, 1937, 504, 2440, 3543, 21743, 969, 5935, 6624, 2975, 8337, 23750)
+)
+
+# Print the resulting dataframe
+print(df_2digit_blunt)
+
+```
+
+```{r}
+# Remove the Percentage column from df_2digit_2011
+df_2digit_2011 <- df_2digit_2011[, c("Category", "Freq")]
+
+# Combine the dataframes
+df_combined <- rbind(
+  transform(df_2digit_2011, Dataset = "AI"),
+  transform(df_2digit_blunt, Dataset = "Blunt")
+)
+
+# Reorder Category to be alphabetical from A to Z with A at the top
+df_combined$Category <- factor(df_combined$Category, levels = rev(sort(unique(df_combined$Category))))
+
+# Load necessary library
+library(ggplot2)
+
+# Plot the comparison graph
+ggplot(df_combined, aes(x = Category, y = Freq, fill = Dataset)) +
+  geom_bar(stat = "identity", position = "dodge") +
+  coord_flip() +
+  labs(title = "Frequency of Categories: AI vs Blunt",
+       x = "Category",
+       y = "Frequency") +
+  theme_minimal() +
+  scale_fill_manual(values = c("AI" = "blue", "Blunt" = "red"))
+
+```
+```{r}
+df_2digit_2011 <- data.frame(
+  Category = c("Activities of private households", "Agriculture, hunting and forestry", "Construction", "Education", "Electricity, gas and water supply", "Extraterritorial organizations and bodies", "Financial intermediation", "Fishing", "Health and social work", "Hotels and restaurants", "Manufacturing", "Mining and quarrying", "Other community, social and personal service activities", "Public administration and defence", "Real estate, renting and business activities", "Transport, storage and communications", "Unemployed", "Wholesale and retail trade"),
+  Freq = c(1637, 67134, 18827, 8109, 857, 1, 1815, 627, 2127, 3115, 20452, 1221, 4336, 7701, 2420, 9292, 286450, 23663),
+  Percentage = c(0.3415725026, 13.4731862303, 4.4260006477, 2.0065469886, 0.2181600161, 0.0002188165, 0.4251603925, 0.1091894163, 0.5339121758, 0.7752667373, 4.7559758777, 0.2128696045, 1.2907983300, 1.4500967169, 0.6538253989, 1.8295244681, 62.3009846246, 5.1968910557)
+)
+
+df_2digit_2009 <- data.frame(
+  Category = c("Activities of private households", "Agriculture, hunting and forestry", "Construction", "Education", "Electricity, gas and water supply", "Extraterritorial organizations and bodies", "Financial intermediation", "Fishing", "Health and social work", "Hotels and restaurants", "Manufacturing", "Mining and quarrying", "Other community, social and personal service activities", "Public administration and defence", "Real estate, renting and business activities", "Transport, storage and communications", "Unemployed", "Wholesale and retail trade"),
+  Freq = c(1561, 61573, 20227, 9170, 997, 1, 1937, 499, 2440, 3543, 21735, 972, 5899, 6627, 2988, 8361, 286450, 23750),
+  Percentage = c(0.3560367477, 14.6012040436, 4.0947488386, 1.7636542376, 0.1863918710, 0.0002174943, 0.3947505785, 0.1363683817, 0.4626085292, 0.6774920397, 4.4481765651, 0.2655594801, 0.9430515189, 1.6749169175, 0.5263341047, 2.0209489673, 62.3009935100, 5.1465470743)
+)
+
+# Ensure both data frames have the same categories and in the same order
+df_2digit_2011 <- df_2digit_2011[order(df_2digit_2011$Category), ]
+df_2digit_2009 <- df_2digit_2009[order(df_2digit_2009$Category), ]
+
+# Create a new dataframe for differences
+df_2digit_diff <- data.frame(
+  Category = df_2digit_2011$Category,
+  Percentage_2011 = df_2digit_2011$Percentage,
+  Percentage_2009 = df_2digit_2009$Percentage
+)
+
+# Calculate the probability difference
+df_2digit_diff$prob_diff <- df_2digit_diff$Percentage_2011 - df_2digit_diff$Percentage_2009
+
+# Add the Freq_2009 column
+df_2digit_diff$Freq_2009 <- df_2digit_2009$Freq
+
+# Calculate the population weight
+df_2digit_diff$prob_weight <- df_2digit_diff$prob_diff / df_2digit_diff$Percentage_2009
+
+# Print the resulting dataframe
+print(df_2digit_diff)
+```

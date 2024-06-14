@@ -4,6 +4,7 @@ output: html_document
 date: "2024-04-04"
 ---
 
+
 For the 2009 data
 ```{r}
 library(haven)
@@ -196,9 +197,73 @@ calculate_proportion <- function(x) {
 
 School_proportion_in_category <- aggregate(School ~ Category, data = count_df, FUN = calculate_proportion)
 
+newrow <- data.frame(Category = "Extraterritorial organizations and bodies", School=0)
+r <- 5
+School_proportion_in_category <- rbind(School_proportion_in_category[1:r, ], newrow, School_proportion_in_category[-(1:r),])
+
+print(School_proportion_in_category)
+
+
 summed_freqs$school <- School_proportion_in_category$School
 
 print(School_proportion_in_category)
 
 ```
 
+Marital Status
+```{r}
+# Check labels for what the values of marital mean.
+unique(data$marital)
+```
+
+
+```{r}
+marital_counts <- data %>%
+  group_by(Category, marital) %>%
+  summarise(count = n(), .groups = 'drop')
+print(marital_counts)
+
+marital_summary <- marital_counts %>%
+  group_by(Category) %>%
+  summarise(marital_vector = list(setNames(count, marital)), .groups = 'drop')
+
+summed_freqs <- summed_freqs %>%
+  left_join(marital_summary, by = "Category")
+```
+
+
+labor status
+```{r}
+# check label for what the values of lstatus mean
+unique(data$lstatus)
+```
+
+
+```{r}
+labor_counts <- data %>%
+  group_by(Category, lstatus) %>%
+  summarise(count = n(), .groups = 'drop')
+print(marital_counts)
+
+labor_summary <- labor_counts %>%
+  group_by(Category) %>%
+  summarise(labor_vector = list(setNames(count, lstatus)), .groups = 'drop')
+
+summed_freqs <- summed_freqs %>%
+  left_join(labor_summary, by = "Category")
+```
+
+
+Vocational status
+```{r}
+count_df <- data.frame(ISIC = data$industrycat_isic_year, vocation = data$vocational, Category = data$Category)
+
+vocation_in_category <- aggregate(vocation ~ Category, data = count_df, FUN = sum)
+
+vocation_proportion_in_category <- aggregate(vocation ~ Category, data = count_df, FUN = calculate_proportion)
+
+summed_freqs$vocation <- vocation_proportion_in_category$vocation
+
+
+print(vocation_proportion_in_category)
+```
